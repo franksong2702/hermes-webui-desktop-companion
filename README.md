@@ -9,6 +9,7 @@ The first milestone is intentionally small:
 - a same-origin WebUI extension plugin under `extension/`
 - Desktop Pet skins migrated from Hermes WebUI PR #2916
 - a local loopback companion server under `src/`
+- the migrated Tauri desktop pet shell under `desktop-pet/`
 - scripts for wiring the companion into a local Hermes WebUI run
 - a reserved `winui/` folder for the future native Windows host
 
@@ -18,7 +19,7 @@ The first milestone is intentionally small:
 Hermes WebUI page
   -> injected /extensions/companion-adapter.js
   -> http://127.0.0.1:17787 loopback API
-  -> desktop companion runtime
+  -> Tauri desktop companion runtime
 ```
 
 The extension plugin is trusted JavaScript running in the Hermes WebUI origin.
@@ -65,6 +66,17 @@ You can also start WebUI in plugin mode directly:
 ./scripts/start-webui-plugin-mode.sh /path/to/hermes-webui
 ```
 
+Run the native desktop pet shell:
+
+```bash
+npm install --prefix desktop-pet
+npm run desktop:dev
+```
+
+The Tauri shell loads `http://127.0.0.1:17787/pet` and
+`http://127.0.0.1:17787/pet/bubbles`. It no longer depends on Hermes WebUI
+serving `/pet`, `/pet/bubbles`, or `/api/pet/*`.
+
 ## Trust model
 
 This project is for trusted local use. The injected adapter can call WebUI APIs
@@ -95,7 +107,7 @@ The project has no runtime npm dependencies in the first scaffold.
 ## Migration Notes
 
 The first runnable plugin-mode pet migrates the #2916 skin assets and the
-spritesheet animation model. It intentionally does not migrate WebUI Python
-routes, settings controls, slash commands, Tauri launch routes, or session
-navigation bridge endpoints. Those become companion-owned or protocol-owned
-features in later milestones instead of WebUI core changes.
+spritesheet animation model plus the Tauri desktop shell. It intentionally does
+not migrate WebUI Python routes, settings controls, slash commands, or WebUI
+launch/install routes. Those become companion-owned or protocol-owned features
+instead of WebUI core changes.

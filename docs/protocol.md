@@ -71,6 +71,30 @@ Returns the latest received snapshot:
 }
 ```
 
+## `GET /api/pet/attention`
+
+Returns the current desktop-pet attention rows derived from the latest WebUI
+extension snapshot.
+
+```json
+{
+  "ok": true,
+  "sessions": [],
+  "source": "webui-extension-snapshot"
+}
+```
+
+When no WebUI page has reported a snapshot yet, `sessions` is empty and
+`source` is `empty`.
+
+## `GET /pet`
+
+Serves the transparent Tauri pet-window page.
+
+## `GET /pet/bubbles`
+
+Serves the companion bubble-window page.
+
 ## Compatibility
 
 Fields may be added over time. Existing fields should remain backwards

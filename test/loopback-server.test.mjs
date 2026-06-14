@@ -51,6 +51,62 @@ test('snapshot endpoint stores latest WebUI snapshot', async () => {
   assert.deepEqual(body.snapshot, snapshot);
 });
 
+test('pet attention is derived from latest WebUI snapshot', async () => {
+  const snapshot = {
+    source: 'hermes-webui',
+    companion: {
+      attention: [
+        {
+          session_id: 's1',
+          status: 'running',
+          title: 'Long task',
+          text: 'Working',
+          message_count: 3,
+          updated_at: 100
+        }
+      ]
+    }
+  };
+
+  await fetch(`${baseUrl}/api/webui/snapshot`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(snapshot)
+  });
+
+  const response = await fetch(`${baseUrl}/api/pet/attention`);
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.source, 'webui-extension-snapshot');
+  assert.equal(body.sessions.length, 1);
+  assert.equal(body.sessions[0].session_id, 's1');
+  assert.equal(body.sessions[0].status, 'running');
+});
+
+test('desktop pet pages and assets are served by loopback', async () => {
+  const pet = await fetch(`${baseUrl}/pet`);
+  assert.equal(pet.status, 200);
+  assert.match(await pet.text(), /petStage/);
+
+  const bubbles = await fetch(`${baseUrl}/pet/bubbles`);
+  assert.equal(bubbles.status, 200);
+  assert.match(await bubbles.text(), /petBubbles/);
+
+  const script = await fetch(`${baseUrl}/desktop-pet/pet.js`);
+  assert.equal(script.status, 200);
+  assert.match(script.headers.get('content-type') || '', /javascript/);
+
+  const sprite = await fetch(`${baseUrl}/extensions/pets/keeper/spritesheet.webp`);
+  assert.equal(sprite.status, 200);
+  assert.equal(sprite.headers.get('content-type'), 'image/webp');
+});
+
+test('desktop pet devUrl supports HEAD probes', async () => {
+  const response = await fetch(`${baseUrl}/pet`, { method: 'HEAD' });
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get('content-type') || '', /text\/html/);
+});
+
 test('default CORS allows loopback WebUI ports', async () => {
   const localServer = createServer();
   await new Promise((resolve) => localServer.listen(0, '127.0.0.1', resolve));

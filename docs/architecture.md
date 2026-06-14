@@ -38,9 +38,10 @@ easy to inspect, easy to replace from WinUI, and does not require WebUI changes.
 
 ## 3. Native desktop host
 
-Location: `winui/`
+Location: `desktop-pet/`
 
-The native host will own desktop-only behavior:
+The current native host is the Tauri shell migrated from Hermes WebUI PR #2916.
+It owns desktop-only behavior:
 
 - windowing
 - tray/menu integration
@@ -49,8 +50,11 @@ The native host will own desktop-only behavior:
 - native notifications
 - packaging
 
-It should treat the loopback protocol as its boundary with WebUI, not import
-WebUI internals.
+It treats the loopback protocol as its boundary with WebUI, not WebUI Python
+routes.
+
+`winui/` remains reserved for a future Windows-native host if we later choose to
+replace or supplement the Tauri shell on Windows.
 
 ## Compatibility rule
 
@@ -75,12 +79,13 @@ Migrated from Hermes WebUI PR #2916:
 - bundled pet skin manifests and spritesheets
 - the 8 x 9 spritesheet state model
 - in-page badge and attention card visual language
+- the Tauri transparent always-on-top desktop shell
 
 Not migrated into WebUI core:
 
 - `api/pet_routes.py`
 - Settings and slash-command controls
-- Tauri launch/install routes
+- WebUI-owned Tauri launch/install routes
 - browser navigation ack routes
 - direct approval/clarify action submission
 

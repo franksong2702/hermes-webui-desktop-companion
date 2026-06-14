@@ -7,11 +7,17 @@ import { fileURLToPath } from 'node:url';
 const root = new URL('../', import.meta.url);
 
 test('extension adapter JavaScript parses', () => {
-  const adapterPath = fileURLToPath(new URL('../extension/companion-adapter.js', import.meta.url));
-  const result = spawnSync(process.execPath, ['--check', adapterPath], {
-    encoding: 'utf8'
-  });
-  assert.equal(result.status, 0, result.stderr || result.stdout);
+  for (const rel of [
+    '../extension/companion-adapter.js',
+    '../desktop-pet/web/pet.js',
+    '../desktop-pet/web/bubbles.js'
+  ]) {
+    const targetPath = fileURLToPath(new URL(rel, import.meta.url));
+    const result = spawnSync(process.execPath, ['--check', targetPath], {
+      encoding: 'utf8'
+    });
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+  }
 });
 
 test('bundled pet skins include manifests and spritesheets', async () => {

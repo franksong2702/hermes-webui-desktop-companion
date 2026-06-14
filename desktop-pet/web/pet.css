@@ -1,0 +1,191 @@
+:root {
+  color-scheme: dark;
+  --pet-width: 128px;
+  --pet-height: 139px;
+  --pet-window-width: 146px;
+  --pet-window-height: 139px;
+  --pet-badge-size: 26px;
+  --pet-badge-gap: -24px;
+  --pet-badge-right: 16px;
+  --pet-badge-top: 14px;
+  --pet-bubble: #f1f3fa;
+  --pet-text: #555a75;
+  --pet-border: rgba(210, 214, 229, 0.95);
+  --pet-green: #08b153;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: transparent;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.pet-body {
+  width: var(--pet-window-width);
+  height: var(--pet-window-height);
+  cursor: grab;
+}
+
+.pet-shell {
+  position: absolute;
+  inset: 0;
+  width: var(--pet-window-width);
+  height: var(--pet-window-height);
+  margin: 0;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.pet-stage {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: var(--pet-width);
+  height: var(--pet-height);
+  border: 0;
+  padding: 0;
+  background: transparent;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: grab;
+  pointer-events: auto;
+}
+
+.pet-stage:active {
+  cursor: grabbing;
+}
+
+.pet-sprite {
+  display: block;
+  width: var(--pet-width);
+  height: var(--pet-height);
+  background: url("/extensions/pets/keeper/spritesheet.webp") no-repeat;
+  background-size: 800% 900%;
+  pointer-events: none;
+}
+
+.pet-badge {
+  position: absolute;
+  left: calc(var(--pet-width) + var(--pet-badge-gap));
+  top: var(--pet-badge-top);
+  width: var(--pet-badge-size);
+  min-width: var(--pet-badge-size);
+  height: var(--pet-badge-size);
+  border: 0;
+  border-radius: 999px;
+  padding: 0;
+  background: var(--pet-green);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 800;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.16);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.pet-badge[hidden] {
+  display: none !important;
+}
+
+.pet-badge.is-expanded {
+  background: rgba(255, 255, 255, 0.96);
+  color: var(--pet-green);
+  border: 1px solid rgba(8, 177, 83, 0.2);
+}
+
+.pet-bubbles-body {
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.pet-bubbles {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 0;
+  display: grid;
+  gap: 7px;
+  pointer-events: auto;
+}
+
+.pet-bubbles[hidden] {
+  display: none !important;
+}
+
+.pet-card {
+  position: relative;
+  box-sizing: border-box;
+  min-height: 58px;
+  width: 100%;
+  padding: 9px 11px 10px 36px;
+  border: 2px solid var(--pet-border);
+  border-radius: 22px;
+  background: var(--pet-bubble);
+  color: var(--pet-text);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.55) inset, 0 4px 10px rgba(0, 0, 0, 0.14);
+  cursor: pointer;
+}
+
+.pet-card-status {
+  position: absolute;
+  left: 10px;
+  top: 12px;
+  width: 17px;
+  height: 17px;
+}
+
+.pet-card[data-status="running"] .pet-card-status {
+  border: 2px solid #9ca1b5;
+  border-top-color: transparent;
+  border-radius: 999px;
+  animation: pet-spin 0.85s linear infinite;
+}
+
+.pet-card[data-status="ready"] .pet-card-status {
+  border-radius: 999px;
+  background: var(--pet-green);
+}
+
+.pet-card-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  line-height: 1.18;
+  font-weight: 800;
+}
+
+.pet-card-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-top: 3px;
+  font-size: 13px;
+  line-height: 1.22;
+  font-weight: 650;
+  color: #686d84;
+  word-break: break-word;
+}
+
+@keyframes pet-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pet-card[data-status="running"] .pet-card-status {
+    animation: none;
+  }
+}
+

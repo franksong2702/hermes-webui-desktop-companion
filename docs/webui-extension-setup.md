@@ -40,4 +40,15 @@ For convenience, this repo also includes a wrapper:
 ```
 
 The current plugin-mode milestone runs the pet inside the WebUI page through the
-extension hook. The native WinUI host is a later layer.
+extension hook and also feeds the standalone Tauri desktop pet through the
+loopback protocol.
+
+To run the desktop pet while developing:
+
+```bash
+npm run dev
+npm run desktop:dev
+```
+
+Use two shells: the first starts the companion loopback, the second starts the
+native transparent pet windows.

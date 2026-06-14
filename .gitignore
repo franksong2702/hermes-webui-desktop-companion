@@ -9,7 +9,8 @@ dist/
 build/
 bin/
 obj/
+desktop-pet/src-tauri/target/
+desktop-pet/src-tauri/gen/
 *.user
 *.suo
 *.log
-
