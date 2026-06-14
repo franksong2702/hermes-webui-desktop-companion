@@ -1,0 +1,16 @@
+{
+  "name": "hermes-webui-desktop-companion",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Trusted local desktop companion adapter for Hermes WebUI.",
+  "type": "module",
+  "scripts": {
+    "dev": "node src/loopback-server.mjs",
+    "test": "node --test",
+    "check": "npm test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
+
