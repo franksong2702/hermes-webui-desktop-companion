@@ -51,6 +51,28 @@ test('snapshot endpoint stores latest WebUI snapshot', async () => {
   assert.deepEqual(body.snapshot, snapshot);
 });
 
+test('default CORS allows loopback WebUI ports', async () => {
+  const localServer = createServer();
+  await new Promise((resolve) => localServer.listen(0, '127.0.0.1', resolve));
+  const address = localServer.address();
+  const url = `http://${address.address}:${address.port}`;
+  try {
+    const response = await fetch(`${url}/api/webui/snapshot`, {
+      method: 'OPTIONS',
+      headers: {
+        origin: 'http://127.0.0.1:8791',
+        'access-control-request-method': 'POST'
+      }
+    });
+    assert.equal(response.status, 204);
+    assert.equal(response.headers.get('access-control-allow-origin'), 'http://127.0.0.1:8791');
+  } finally {
+    await new Promise((resolve, reject) => {
+      localServer.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
+});
+
 test('invalid JSON is rejected', async () => {
   const response = await fetch(`${baseUrl}/api/webui/snapshot`, {
     method: 'POST',
@@ -65,4 +87,3 @@ test('normalizes configured ports', () => {
   assert.equal(normalizePort('17787'), 17787);
   assert.throws(() => normalizePort('99999'), /Invalid port/);
 });
-

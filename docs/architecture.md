@@ -2,7 +2,7 @@
 
 This project is split into three layers.
 
-## 1. WebUI extension adapter
+## 1. WebUI extension plugin
 
 Location: `extension/`
 
@@ -10,6 +10,8 @@ Responsibilities:
 
 - load through Hermes WebUI's existing extension mechanism
 - create only extension-owned DOM
+- animate the migrated Desktop Pet spritesheets
+- derive lightweight attention from existing WebUI session APIs
 - send a small browser/session snapshot to the companion loopback
 - expose a narrow place for future companion actions
 
@@ -66,3 +68,21 @@ It should avoid:
 - monkey-patching WebUI functions
 - writing WebUI localStorage keys not owned by this project
 
+## Current migration boundary
+
+Migrated from Hermes WebUI PR #2916:
+
+- bundled pet skin manifests and spritesheets
+- the 8 x 9 spritesheet state model
+- in-page badge and attention card visual language
+
+Not migrated into WebUI core:
+
+- `api/pet_routes.py`
+- Settings and slash-command controls
+- Tauri launch/install routes
+- browser navigation ack routes
+- direct approval/clarify action submission
+
+Those belong behind this companion project's loopback/protocol boundary if they
+are reintroduced.

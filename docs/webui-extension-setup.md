@@ -11,7 +11,7 @@ HERMES_WEBUI_EXTENSION_SCRIPT_URLS=/extensions/companion-adapter.js \
 ./start.sh
 ```
 
-For local development, start the companion first:
+For local development, start the companion loopback first:
 
 ```bash
 cd /path/to/hermes-webui-desktop-companion
@@ -33,3 +33,11 @@ it before the adapter loads if needed:
 In normal Hermes WebUI usage, prefer leaving the defaults unless the companion
 server is intentionally bound to another loopback port.
 
+For convenience, this repo also includes a wrapper:
+
+```bash
+./scripts/start-webui-plugin-mode.sh /path/to/hermes-webui
+```
+
+The current plugin-mode milestone runs the pet inside the WebUI page through the
+extension hook. The native WinUI host is a later layer.

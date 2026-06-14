@@ -6,9 +6,10 @@ through the existing trusted local extension surface.
 
 The first milestone is intentionally small:
 
-- a same-origin WebUI extension adapter under `extension/`
+- a same-origin WebUI extension plugin under `extension/`
+- Desktop Pet skins migrated from Hermes WebUI PR #2916
 - a local loopback companion server under `src/`
-- scripts for wiring the adapter into a local Hermes WebUI run
+- scripts for wiring the companion into a local Hermes WebUI run
 - a reserved `winui/` folder for the future native Windows host
 
 ## Current shape
@@ -20,9 +21,14 @@ Hermes WebUI page
   -> desktop companion runtime
 ```
 
-The adapter is trusted JavaScript running in the Hermes WebUI origin. It should
-stay small, auditable, additive, and reversible. It must not replace broad WebUI
-containers or depend on private DOM structure where an existing API can be used.
+The extension plugin is trusted JavaScript running in the Hermes WebUI origin.
+It creates an extension-owned Desktop Pet overlay, animates the bundled pet
+spritesheet, polls existing WebUI session APIs for lightweight attention state,
+and sends a companion snapshot to the local loopback server.
+
+It should stay small, auditable, additive, and reversible. It must not replace
+broad WebUI containers or depend on private DOM structure where an existing API
+can be used.
 
 ## Quick start
 
@@ -49,8 +55,15 @@ HERMES_WEBUI_EXTENSION_SCRIPT_URLS=/extensions/companion-adapter.js \
 ```
 
 Then open Hermes WebUI. A small `Companion` status pill should appear in the
-lower-right corner. The loopback server should receive snapshots at
-`POST /api/webui/snapshot`.
+lower-right corner of the Desktop Pet overlay. The pet should animate even if
+the companion loopback is offline; when the loopback is running it receives
+snapshots at `POST /api/webui/snapshot`.
+
+You can also start WebUI in plugin mode directly:
+
+```bash
+./scripts/start-webui-plugin-mode.sh /path/to/hermes-webui
+```
 
 ## Trust model
 
@@ -73,9 +86,16 @@ The project has no runtime npm dependencies in the first scaffold.
 
 ## Roadmap
 
-- Define the minimal snapshot and action protocol.
+- Expand the snapshot and action protocol.
 - Add a native Windows host in `winui/`.
 - Add explicit user consent for any companion action that triggers WebUI APIs.
 - Add packaging guidance for installing the extension adapter next to a WebUI
   install without modifying the WebUI source tree.
 
+## Migration Notes
+
+The first runnable plugin-mode pet migrates the #2916 skin assets and the
+spritesheet animation model. It intentionally does not migrate WebUI Python
+routes, settings controls, slash commands, Tauri launch routes, or session
+navigation bridge endpoints. Those become companion-owned or protocol-owned
+features in later milestones instead of WebUI core changes.

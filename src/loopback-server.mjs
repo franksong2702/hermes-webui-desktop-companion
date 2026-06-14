@@ -3,21 +3,25 @@ import http from 'node:http';
 export const SERVICE_NAME = 'hermes-webui-desktop-companion';
 export const VERSION = '0.1.0';
 
-const DEFAULT_ALLOWED_ORIGINS = new Set([
-  'http://127.0.0.1:8787',
-  'http://localhost:8787',
-  'http://127.0.0.1:8788',
-  'http://localhost:8788'
-]);
-
 function parseAllowedOrigins(value) {
-  if (!value) return DEFAULT_ALLOWED_ORIGINS;
+  if (!value) return null;
   return new Set(
     value
       .split(',')
       .map((item) => item.trim())
       .filter(Boolean)
   );
+}
+
+function isDefaultLoopbackOrigin(origin) {
+  if (!origin) return false;
+  try {
+    const url = new URL(origin);
+    if (!['http:', 'https:'].includes(url.protocol)) return false;
+    return ['127.0.0.1', 'localhost', '[::1]', '::1'].includes(url.hostname);
+  } catch (_) {
+    return false;
+  }
 }
 
 export function normalizePort(value, fallback = 17787) {
@@ -61,7 +65,9 @@ async function readJson(req) {
 
 function corsHeaders(req, allowedOrigins) {
   const origin = req.headers.origin;
-  if (!origin || !allowedOrigins.has(origin)) return {};
+  if (!origin) return {};
+  const allowed = allowedOrigins ? allowedOrigins.has(origin) : isDefaultLoopbackOrigin(origin);
+  if (!allowed) return {};
   return {
     'access-control-allow-origin': origin,
     'access-control-allow-methods': 'GET,POST,OPTIONS',
@@ -130,4 +136,3 @@ export function startServer(options = {}) {
 if (import.meta.url === `file://${process.argv[1]}`) {
   startServer();
 }
-

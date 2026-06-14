@@ -37,7 +37,17 @@ Example request:
     "visibilityState": "visible"
   },
   "capabilities": {
+    "inPagePet": true,
+    "loopback": true,
     "canReceiveActions": false
+  },
+  "companion": {
+    "skin": "keeper",
+    "skinName": "May",
+    "state": "idle",
+    "collapsed": false,
+    "attentionCount": 0,
+    "attention": []
   }
 }
 ```
@@ -65,4 +75,3 @@ Returns the latest received snapshot:
 
 Fields may be added over time. Existing fields should remain backwards
 compatible unless the protocol version changes.
-
