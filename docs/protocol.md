@@ -16,9 +16,19 @@ Returns:
 {
   "ok": true,
   "service": "hermes-webui-desktop-companion",
-  "version": "0.1.0"
+  "status": "ok",
+  "name": "Hermes WebUI Desktop Companion",
+  "version": "0.1.0",
+  "sidecar": {
+    "type": "loopback",
+    "health_path": "/health"
+  }
 }
 ```
+
+The `ok`, `service`, and `version` fields are retained for simple scripts. The
+`status`, `name`, and `sidecar` fields are intended for future WebUI extension
+settings or diagnostics panels.
 
 ## `POST /api/webui/snapshot`
 

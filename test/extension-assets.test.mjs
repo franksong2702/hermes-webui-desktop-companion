@@ -29,8 +29,14 @@ test('extension manifest bundles adapter assets', async () => {
 
   const entry = manifest.extensions[0];
   assert.equal(entry.id, 'desktop-companion');
+  assert.equal(entry.name, 'Hermes WebUI Desktop Companion');
   assert.deepEqual(entry.scripts, ['companion-adapter.js']);
   assert.deepEqual(entry.stylesheets, ['companion-adapter.css']);
+  assert.deepEqual(entry.sidecar, {
+    type: 'loopback',
+    origin: 'http://127.0.0.1:17787',
+    health_path: '/health'
+  });
 });
 
 test('bundled pet skins include manifests and spritesheets', async () => {

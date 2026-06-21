@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const SERVICE_NAME = 'hermes-webui-desktop-companion';
+export const DISPLAY_NAME = 'Hermes WebUI Desktop Companion';
 export const VERSION = '0.1.0';
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DESKTOP_WEB_ROOT = path.join(PROJECT_ROOT, 'desktop-pet', 'web');
@@ -244,7 +245,17 @@ export function createServer(options = {}) {
       }
 
       if (req.method === 'GET' && url.pathname === '/health') {
-        sendJson(res, 200, { ok: true, service: SERVICE_NAME, version: VERSION }, headers);
+        sendJson(res, 200, {
+          ok: true,
+          status: 'ok',
+          service: SERVICE_NAME,
+          name: DISPLAY_NAME,
+          version: VERSION,
+          sidecar: {
+            type: 'loopback',
+            health_path: '/health'
+          }
+        }, headers);
         return;
       }
 

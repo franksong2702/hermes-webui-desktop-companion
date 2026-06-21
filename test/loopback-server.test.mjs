@@ -24,7 +24,14 @@ test('health returns service metadata', async () => {
 
   assert.equal(response.status, 200);
   assert.equal(body.ok, true);
+  assert.equal(body.status, 'ok');
   assert.equal(body.service, 'hermes-webui-desktop-companion');
+  assert.equal(body.name, 'Hermes WebUI Desktop Companion');
+  assert.equal(body.version, '0.1.0');
+  assert.deepEqual(body.sidecar, {
+    type: 'loopback',
+    health_path: '/health'
+  });
 });
 
 test('snapshot endpoint stores latest WebUI snapshot', async () => {

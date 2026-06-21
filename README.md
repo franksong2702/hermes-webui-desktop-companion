@@ -32,6 +32,23 @@ It creates an extension-owned Desktop Pet overlay, animates the bundled pet
 spritesheet, polls existing WebUI session APIs for lightweight attention state,
 and sends a companion snapshot to the local loopback server.
 
+`extension/manifest.json` also declares the desktop runtime as a loopback
+sidecar:
+
+```json
+{
+  "sidecar": {
+    "type": "loopback",
+    "origin": "http://127.0.0.1:17787",
+    "health_path": "/health"
+  }
+}
+```
+
+This field is descriptive until Hermes WebUI lands a formal sidecar manifest
+contract. It does not imply auto-install, auto-start, proxying, or native host
+permission.
+
 It should stay small, auditable, additive, and reversible. It must not replace
 broad WebUI containers or depend on private DOM structure where an existing API
 can be used.
@@ -96,6 +113,21 @@ HERMES_WEBUI_EXTENSION_SCRIPT_URLS=/extensions/companion-adapter.js \
 ./start.sh
 ```
 
+## Disable and uninstall
+
+To disable the WebUI extension, restart Hermes WebUI without:
+
+```text
+HERMES_WEBUI_EXTENSION_DIR
+HERMES_WEBUI_EXTENSION_MANIFEST
+HERMES_WEBUI_EXTENSION_STYLESHEET_URLS
+HERMES_WEBUI_EXTENSION_SCRIPT_URLS
+```
+
+To stop the sidecar, stop the `npm run dev` process. To remove the project,
+delete this repository clone after stopping the sidecar and any native desktop
+host process.
+
 ## Trust model
 
 This project is for trusted local use. The injected adapter can call WebUI APIs
@@ -105,6 +137,27 @@ from a directory you control.
 The loopback server does not authenticate requests in this first scaffold. It
 binds to `127.0.0.1` by default and only accepts loopback WebUI origins by
 default. Do not expose it on a public interface.
+
+The sidecar serves local pet assets and stores only the latest in-memory WebUI
+snapshot received from the adapter. It does not persist session data, read
+Hermes credentials, or require filesystem access outside this repository in the
+current scaffold.
+
+## Compatibility
+
+Current required WebUI capabilities:
+
+- extension manifest bundles through `HERMES_WEBUI_EXTENSION_MANIFEST`
+- same-origin extension assets under `/extensions/`
+- browser access to existing authenticated WebUI session APIs
+
+Pending or future WebUI capabilities:
+
+- sidecar metadata support in extension manifests
+- extension settings/status UI that can display sidecar health
+- optional backend bridge or proxy contract for richer local integrations
+
+See `docs/compatibility.md` for the current compatibility notes.
 
 ## Development
 
@@ -123,6 +176,7 @@ trusted-local example, not as a WebUI core patch:
 - extension assets are packaged by `extension/manifest.json`
 - WebUI core changes are not required
 - the local sidecar binds to `127.0.0.1` and owns desktop-only protocol state
+- the manifest documents the sidecar with `type`, `origin`, and `health_path`
 - the Tauri host remains outside Hermes WebUI
 - future WebUI plugin backend support can replace or formalize the sidecar
   boundary when that upstream API is ready
