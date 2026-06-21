@@ -1,15 +1,18 @@
 # Hermes WebUI Extension Setup
 
 Hermes WebUI extensions are disabled by default. Start WebUI with this project's
-extension directory configured:
+extension directory and manifest configured:
 
 ```bash
 cd /path/to/hermes-webui
 HERMES_WEBUI_EXTENSION_DIR=/path/to/hermes-webui-desktop-companion/extension \
-HERMES_WEBUI_EXTENSION_STYLESHEET_URLS=/extensions/companion-adapter.css \
-HERMES_WEBUI_EXTENSION_SCRIPT_URLS=/extensions/companion-adapter.js \
+HERMES_WEBUI_EXTENSION_MANIFEST=manifest.json \
 ./start.sh
 ```
+
+`extension/manifest.json` lists the companion adapter script and stylesheet.
+This is the preferred path for WebUI builds that include extension manifest
+support.
 
 For local development, start the companion loopback first:
 
@@ -42,6 +45,17 @@ For convenience, this repo also includes a wrapper:
 The current plugin-mode milestone runs the pet inside the WebUI page through the
 extension hook and also feeds the standalone Tauri desktop pet through the
 loopback protocol.
+
+For older WebUI builds without `HERMES_WEBUI_EXTENSION_MANIFEST`, fall back to
+the explicit URL-list configuration:
+
+```bash
+cd /path/to/hermes-webui
+HERMES_WEBUI_EXTENSION_DIR=/path/to/hermes-webui-desktop-companion/extension \
+HERMES_WEBUI_EXTENSION_STYLESHEET_URLS=/extensions/companion-adapter.css \
+HERMES_WEBUI_EXTENSION_SCRIPT_URLS=/extensions/companion-adapter.js \
+./start.sh
+```
 
 To run the desktop pet while developing:
 

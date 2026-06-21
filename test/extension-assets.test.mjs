@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { stat } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import { test } from 'node:test';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -18,6 +18,19 @@ test('extension adapter JavaScript parses', () => {
     });
     assert.equal(result.status, 0, result.stderr || result.stdout);
   }
+});
+
+test('extension manifest bundles adapter assets', async () => {
+  const manifestText = await readFile(new URL('../extension/manifest.json', import.meta.url), 'utf8');
+  const manifest = JSON.parse(manifestText);
+
+  assert.ok(Array.isArray(manifest.extensions));
+  assert.equal(manifest.extensions.length, 1);
+
+  const entry = manifest.extensions[0];
+  assert.equal(entry.id, 'desktop-companion');
+  assert.deepEqual(entry.scripts, ['companion-adapter.js']);
+  assert.deepEqual(entry.stylesheets, ['companion-adapter.css']);
 });
 
 test('bundled pet skins include manifests and spritesheets', async () => {

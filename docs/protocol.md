@@ -99,3 +99,14 @@ Serves the companion bubble-window page.
 
 Fields may be added over time. Existing fields should remain backwards
 compatible unless the protocol version changes.
+
+## Upstream extension fit
+
+This protocol intentionally lives outside Hermes WebUI core. The current WebUI
+extension sends snapshots to a trusted loopback sidecar because the upstream
+extension surface supports same-origin static assets and browser APIs, but not a
+formal extension backend route yet.
+
+If Hermes WebUI later lands an official extension backend bridge, the companion
+should adapt this protocol to that bridge instead of adding WebUI core routes
+for desktop-only behavior.

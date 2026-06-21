@@ -1,0 +1,15 @@
+{
+  "extensions": [
+    {
+      "id": "desktop-companion",
+      "name": "Hermes WebUI Desktop Companion",
+      "description": "Trusted local desktop companion adapter for Hermes WebUI.",
+      "scripts": [
+        "companion-adapter.js"
+      ],
+      "stylesheets": [
+        "companion-adapter.css"
+      ]
+    }
+  ]
+}

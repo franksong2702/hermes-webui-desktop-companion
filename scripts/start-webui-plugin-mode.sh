@@ -16,9 +16,9 @@ if [[ ! -x "$WEBUI_DIR/start.sh" ]]; then
 fi
 
 export HERMES_WEBUI_EXTENSION_DIR="${ROOT_DIR}/extension"
-export HERMES_WEBUI_EXTENSION_STYLESHEET_URLS="/extensions/companion-adapter.css"
-export HERMES_WEBUI_EXTENSION_SCRIPT_URLS="/extensions/companion-adapter.js"
+export HERMES_WEBUI_EXTENSION_MANIFEST="manifest.json"
+unset HERMES_WEBUI_EXTENSION_SCRIPT_URLS
+unset HERMES_WEBUI_EXTENSION_STYLESHEET_URLS
 
 cd "$WEBUI_DIR"
 exec ./start.sh
-

@@ -2,13 +2,13 @@
 
 This project is split into three layers.
 
-## 1. WebUI extension plugin
+## 1. WebUI extension
 
 Location: `extension/`
 
 Responsibilities:
 
-- load through Hermes WebUI's existing extension mechanism
+- load through Hermes WebUI's extension manifest mechanism
 - create only extension-owned DOM
 - animate the migrated Desktop Pet spritesheets
 - derive lightweight attention from existing WebUI session APIs
@@ -36,6 +36,10 @@ Responsibilities:
 The loopback protocol is deliberately HTTP/JSON for the first scaffold. It is
 easy to inspect, easy to replace from WinUI, and does not require WebUI changes.
 
+If Hermes WebUI later ships an official extension backend bridge, this sidecar
+can become the compatibility target or be replaced by that bridge without
+moving desktop-only code into WebUI core.
+
 ## 3. Native desktop host
 
 Location: `desktop-pet/`
@@ -60,7 +64,7 @@ replace or supplement the Tauri shell on Windows.
 
 The WebUI adapter may use:
 
-- documented Hermes WebUI extension loading
+- documented Hermes WebUI extension loading and manifest asset bundling
 - existing authenticated WebUI APIs
 - stable browser primitives
 - extension-owned DOM
