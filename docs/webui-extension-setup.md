@@ -11,8 +11,9 @@ HERMES_WEBUI_EXTENSION_MANIFEST=manifest.json \
 ```
 
 `extension/manifest.json` lists the companion adapter script and stylesheet.
-This is the preferred path for WebUI builds that include extension manifest
-support.
+It also declares a descriptive loopback sidecar at
+`http://127.0.0.1:17787/health`. This is the preferred path for WebUI builds
+that include extension manifest support.
 
 For local development, start the companion loopback first:
 
@@ -66,3 +67,7 @@ npm run desktop:dev
 
 Use two shells: the first starts the companion loopback, the second starts the
 native transparent pet windows.
+
+To disable the extension, restart WebUI without the extension environment
+variables above. To uninstall, stop the loopback and native host processes and
+remove this repository clone.

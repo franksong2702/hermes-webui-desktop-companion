@@ -36,6 +36,10 @@ Responsibilities:
 The loopback protocol is deliberately HTTP/JSON for the first scaffold. It is
 easy to inspect, easy to replace from WinUI, and does not require WebUI changes.
 
+The sidecar is declared in `extension/manifest.json` with `type`, `origin`, and
+`health_path` metadata. That declaration is descriptive until the main Hermes
+WebUI repo ships a formal sidecar manifest contract.
+
 If Hermes WebUI later ships an official extension backend bridge, this sidecar
 can become the compatibility target or be replaced by that bridge without
 moving desktop-only code into WebUI core.
@@ -75,6 +79,10 @@ It should avoid:
 - CSS selectors that assume exact message markup
 - monkey-patching WebUI functions
 - writing WebUI localStorage keys not owned by this project
+
+The companion should declare required WebUI capabilities rather than relying on
+only version numbers. Current capability names are tracked in
+`docs/compatibility.md`.
 
 ## Current migration boundary
 

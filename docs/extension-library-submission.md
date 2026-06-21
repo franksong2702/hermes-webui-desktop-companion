@@ -37,6 +37,22 @@ desktop-companion/
 The library entry should point to this repository for the sidecar and native
 host source instead of vendoring the full Tauri project into the library repo.
 
+The manifest should declare the sidecar metadata once the extensions library
+accepts that convention:
+
+```json
+{
+  "sidecar": {
+    "type": "loopback",
+    "origin": "http://127.0.0.1:17787",
+    "health_path": "/health"
+  }
+}
+```
+
+This is descriptive metadata. It should not claim that WebUI can install,
+auto-start, proxy, or manage the sidecar until those contracts exist upstream.
+
 ## Install model
 
 1. Install or clone this repository locally.
@@ -88,7 +104,10 @@ upstream direction:
 
 - Extension manifest bundles: already supported by Hermes WebUI through
   `HERMES_WEBUI_EXTENSION_MANIFEST`.
-- Extension status diagnostics: useful for install troubleshooting once merged.
+- Extension status diagnostics: useful for install troubleshooting.
+- Sidecar manifest metadata: proposed contract for Desktop Companion-style
+  loopback helpers.
+- Extension settings/status panel: future place to show sidecar health.
 - Subprocess-isolated plugin backend API: future replacement or formalization
   point for the local sidecar.
 
@@ -101,6 +120,7 @@ start with a small PR:
 - include the `manifest.json` shape
 - link to this repo for the source and sidecar
 - document the trust model
+- document compatibility and sidecar health expectations
 - list the current limitation that backend behavior uses a local loopback
   sidecar until upstream plugin backend support is ready
 
