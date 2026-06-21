@@ -24,21 +24,40 @@ Suggested library contents:
 ```text
 desktop-companion/
   README.md
+  extension.json
   manifest.json
-  assets/
-    companion-adapter.js
-    companion-adapter.css
-    pets/
-      keeper/
-      shiba/
-      courier/
+  companion-adapter.js
+  companion-adapter.css
+  pets/
+    keeper/
+    shiba/
+    courier/
 ```
 
 The library entry should point to this repository for the sidecar and native
 host source instead of vendoring the full Tauri project into the library repo.
 
-The manifest should declare the sidecar metadata once the extensions library
-accepts that convention:
+`extension/extension.json` is the PR #10-style author metadata source. It
+declares identity, assets, shipped capabilities, sidecar metadata, purpose-based
+permissions, and lifecycle behavior. `extension/manifest.json` is still kept for
+today's Hermes WebUI loader, which consumes the minimal runtime manifest
+directly.
+
+The entry metadata declares only shipped capabilities today:
+
+```json
+{
+  "capabilities": [
+    "manifest-bundle",
+    "loopback-sidecar"
+  ]
+}
+```
+
+It must not declare `sidecar-proxy` until Hermes WebUI core ships that
+capability.
+
+The metadata should declare the sidecar shape:
 
 ```json
 {
@@ -52,6 +71,25 @@ accepts that convention:
 
 This is descriptive metadata. It should not claim that WebUI can install,
 auto-start, proxy, or manage the sidecar until those contracts exist upstream.
+
+The entry uses the PR #10 lifecycle split:
+
+```json
+{
+  "lifecycle": {
+    "webui_restart_required": false,
+    "sidecar_start_required": true,
+    "native_host_start_required": true,
+    "native_host_autostart": "extension_owned"
+  }
+}
+```
+
+The injected WebUI assets do not require a WebUI process restart as an intrinsic
+extension behavior. The loopback sidecar and native desktop host do need to be
+started, and native-host autostart remains a Desktop Companion preference rather
+than WebUI core state. Today's manual env-var setup may still involve restarting
+WebUI so it rereads its configured extension manifest.
 
 ## Install model
 
@@ -117,7 +155,9 @@ If `hermes-webui/hermes-webui-extensions` is still establishing conventions,
 start with a small PR:
 
 - add a `desktop-companion/README.md`
-- include the `manifest.json` shape
+- include the `extension.json` source metadata
+- include the runtime `manifest.json` only if maintainers still want the
+  derived loader manifest checked in during the transition
 - link to this repo for the source and sidecar
 - document the trust model
 - document compatibility and sidecar health expectations

@@ -1,0 +1,63 @@
+{
+  "id": "desktop-companion",
+  "name": "Desktop Companion",
+  "description": "Trusted local desktop companion for Hermes WebUI. Ships a WebUI adapter, a loopback sidecar protocol, and a native desktop pet host.",
+  "version": "0.1.0",
+  "author": "franksong2702",
+  "homepage": "https://github.com/franksong2702/hermes-webui-desktop-companion",
+  "assets": {
+    "scripts": [
+      "companion-adapter.js"
+    ],
+    "stylesheets": [
+      "companion-adapter.css"
+    ]
+  },
+  "capabilities": [
+    "manifest-bundle",
+    "loopback-sidecar"
+  ],
+  "sidecar": {
+    "type": "loopback",
+    "origin": "http://127.0.0.1:17787",
+    "health_path": "/health"
+  },
+  "lifecycle": {
+    "webui_restart_required": false,
+    "sidecar_start_required": true,
+    "native_host_start_required": true,
+    "native_host_autostart": "extension_owned"
+  },
+  "screenshots": [],
+  "permissions": {
+    "webui_api": {
+      "read": [
+        "sessions"
+      ],
+      "write": []
+    },
+    "webui_navigation": true,
+    "dom": {
+      "owned": true,
+      "mutates_core_views": false
+    },
+    "storage": {
+      "owned": [
+        "hermes-companion-pet-collapsed",
+        "hermes-companion-pet-skin"
+      ],
+      "shared_webui_keys": [
+        "hermes-session-viewed-counts",
+        "hermes-session-completion-unread",
+        "hermes-webui-session"
+      ]
+    },
+    "loopback_sidecar": true,
+    "native_host": true,
+    "filesystem": {
+      "arbitrary": false,
+      "serves_bundled_assets": true
+    },
+    "network_external": false
+  }
+}
