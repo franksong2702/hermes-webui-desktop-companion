@@ -34,7 +34,7 @@
       ],
       "write": []
     },
-    "webui_navigation": true,
+    "webui_navigation": false,
     "dom": {
       "owned": false,
       "mutates_core_views": false

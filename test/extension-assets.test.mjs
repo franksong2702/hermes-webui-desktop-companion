@@ -80,7 +80,7 @@ test('extension metadata follows the PR10 extension entry shape', async () => {
     read: ['sessions'],
     write: []
   });
-  assert.equal(entry.permissions.webui_navigation, true);
+  assert.equal(entry.permissions.webui_navigation, false);
   assert.deepEqual(entry.permissions.dom, {
     owned: false,
     mutates_core_views: false
