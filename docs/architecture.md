@@ -9,8 +9,6 @@ Location: `extension/`
 Responsibilities:
 
 - load through Hermes WebUI's extension manifest mechanism
-- create only extension-owned DOM
-- animate the migrated Desktop Pet spritesheets
 - derive lightweight attention from existing WebUI session APIs
 - send a small browser/session snapshot to the companion loopback
 - expose a narrow place for future companion actions
@@ -19,6 +17,7 @@ Non-goals:
 
 - no WebUI Python routes
 - no Hermes Agent source dependency
+- no browser pet or WebUI overlay
 - no broad DOM replacement
 - no direct model, memory, tool, or permission changes
 
@@ -71,14 +70,13 @@ The WebUI adapter may use:
 - documented Hermes WebUI extension loading and manifest asset bundling
 - existing authenticated WebUI APIs
 - stable browser primitives
-- extension-owned DOM
 
 It should avoid:
 
 - private WebUI module globals unless guarded and optional
 - CSS selectors that assume exact message markup
 - monkey-patching WebUI functions
-- writing WebUI localStorage keys not owned by this project
+- writing WebUI localStorage keys
 
 The companion should declare required WebUI capabilities rather than relying on
 only version numbers. Current capability names are tracked in
@@ -90,7 +88,6 @@ Migrated from Hermes WebUI PR #2916:
 
 - bundled pet skin manifests and spritesheets
 - the 8 x 9 spritesheet state model
-- in-page badge and attention card visual language
 - the Tauri transparent always-on-top desktop shell
 
 Not migrated into WebUI core:

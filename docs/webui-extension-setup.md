@@ -10,8 +10,8 @@ HERMES_WEBUI_EXTENSION_MANIFEST=manifest.json \
 ./start.sh
 ```
 
-`extension/manifest.json` lists the companion adapter script and stylesheet.
-It also declares a descriptive loopback sidecar at
+`extension/manifest.json` lists the companion adapter script. It also declares a
+descriptive loopback sidecar at
 `http://127.0.0.1:17787/health`. This is the preferred path for WebUI builds
 that include extension manifest support.
 
@@ -43,8 +43,8 @@ For convenience, this repo also includes a wrapper:
 ./scripts/start-webui-plugin-mode.sh /path/to/hermes-webui
 ```
 
-The current plugin-mode milestone runs the pet inside the WebUI page through the
-extension hook and also feeds the standalone Tauri desktop pet through the
+The current plugin-mode milestone does not render a pet inside the WebUI page.
+The extension hook only feeds the standalone Tauri desktop pet through the
 loopback protocol.
 
 For older WebUI builds without `HERMES_WEBUI_EXTENSION_MANIFEST`, fall back to
@@ -53,7 +53,6 @@ the explicit URL-list configuration:
 ```bash
 cd /path/to/hermes-webui
 HERMES_WEBUI_EXTENSION_DIR=/path/to/hermes-webui-desktop-companion/extension \
-HERMES_WEBUI_EXTENSION_STYLESHEET_URLS=/extensions/companion-adapter.css \
 HERMES_WEBUI_EXTENSION_SCRIPT_URLS=/extensions/companion-adapter.js \
 ./start.sh
 ```

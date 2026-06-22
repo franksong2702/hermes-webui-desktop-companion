@@ -27,7 +27,6 @@ desktop-companion/
   extension.json
   manifest.json
   companion-adapter.js
-  companion-adapter.css
   pets/
     keeper/
     shiba/
@@ -120,6 +119,7 @@ This is a trusted local extension:
 
 - the adapter runs in the Hermes WebUI browser origin
 - it can call WebUI APIs available to the logged-in user
+- it does not render browser UI
 - the loopback sidecar binds to `127.0.0.1` by default
 - the sidecar is not a public HTTP service
 - native desktop behavior stays outside WebUI core

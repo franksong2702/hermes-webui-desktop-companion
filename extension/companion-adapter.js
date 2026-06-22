@@ -3,87 +3,23 @@
   if (window.__HERMES_WEBUI_DESKTOP_COMPANION_LOADED__) return;
   window.__HERMES_WEBUI_DESKTOP_COMPANION_LOADED__ = true;
 
-  const CURRENT_SCRIPT_SRC = document.currentScript && document.currentScript.src;
-  const ASSET_BASE = CURRENT_SCRIPT_SRC ? new URL('.', CURRENT_SCRIPT_SRC) : new URL('/extensions/', window.location.origin);
-  const PETS_BASE = CURRENT_SCRIPT_SRC && new URL(CURRENT_SCRIPT_SRC).pathname.includes('/assets/')
-    ? new URL('../pets/', ASSET_BASE)
-    : new URL('pets/', ASSET_BASE);
-
   const VIEWED_COUNTS_KEY = 'hermes-session-viewed-counts';
   const COMPLETION_UNREAD_KEY = 'hermes-session-completion-unread';
-  const COLLAPSED_KEY = 'hermes-companion-pet-collapsed';
-  const SKIN_KEY = 'hermes-companion-pet-skin';
-
-  function assetUrl(relativePath) {
-    return new URL(relativePath, PETS_BASE).toString();
-  }
-
-  const DEFAULT_LAYOUT = {
-    columns: 8,
-    rows: 9,
-    frameWidth: 192,
-    frameHeight: 208,
-    states: [
-      { name: 'idle', row: 0, frames: 6 },
-      { name: 'running-right', row: 1, frames: 8 },
-      { name: 'running-left', row: 2, frames: 8 },
-      { name: 'waving', row: 3, frames: 4 },
-      { name: 'jumping', row: 4, frames: 5 },
-      { name: 'failed', row: 5, frames: 8 },
-      { name: 'waiting', row: 6, frames: 6 },
-      { name: 'running', row: 7, frames: 6 },
-      { name: 'review', row: 8, frames: 6 }
-    ]
-  };
-
-  const SKINS = [
-    {
-      id: 'keeper',
-      displayName: 'May',
-      spritesheetUrl: assetUrl('keeper/spritesheet.webp'),
-      layout: DEFAULT_LAYOUT
-    },
-    {
-      id: 'shiba',
-      displayName: 'Shiba',
-      spritesheetUrl: assetUrl('shiba/spritesheet.webp'),
-      layout: DEFAULT_LAYOUT
-    },
-    {
-      id: 'courier',
-      displayName: 'Courier Bot',
-      spritesheetUrl: assetUrl('courier/spritesheet.webp'),
-      layout: DEFAULT_LAYOUT
-    }
-  ];
 
   const config = {
     endpoint: 'http://127.0.0.1:17787',
     heartbeatMs: 10000,
     pollMs: 4000,
-    frameMs: 520,
-    maxCards: 3,
-    showStatus: true,
+    maxAttention: 8,
     ...(window.HERMES_DESKTOP_COMPANION_CONFIG || {})
   };
 
   const state = {
     connected: false,
-    petState: 'idle',
-    frame: 0,
     sessions: [],
     attention: [],
-    activeSkinId: localStorage.getItem(SKIN_KEY) || 'keeper',
-    collapsed: localStorage.getItem(COLLAPSED_KEY) === '1',
     lastSnapshotAt: 0
   };
-
-  let rootEl;
-  let bubblesEl;
-  let stageEl;
-  let spriteEl;
-  let badgeEl;
-  let statusEl;
 
   function readJson(key, fallback) {
     try {
@@ -96,72 +32,6 @@
 
   function cleanText(value) {
     return String(value || '').replace(/\s+/g, ' ').trim();
-  }
-
-  function escapeHtml(value) {
-    return String(value || '').replace(/[&<>"']/g, (ch) => ({
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      '"': '&quot;',
-      "'": '&#39;'
-    })[ch]);
-  }
-
-  function activeSkin() {
-    return SKINS.find((skin) => skin.id === state.activeSkinId) || SKINS[0];
-  }
-
-  function activeLayout() {
-    return activeSkin().layout || DEFAULT_LAYOUT;
-  }
-
-  function stateSpec() {
-    const layout = activeLayout();
-    return layout.states.find((item) => item.name === state.petState) || layout.states[0];
-  }
-
-  function frameCount() {
-    const layout = activeLayout();
-    const spec = stateSpec();
-    return Math.max(1, Math.min(layout.columns, Number(spec.frames) || layout.columns));
-  }
-
-  function setConnection(connected) {
-    state.connected = connected;
-    if (!statusEl) return;
-    statusEl.dataset.state = connected ? 'connected' : 'offline';
-    const label = statusEl.querySelector('.hwc-status__label');
-    if (label) label.textContent = connected ? 'Companion connected' : 'Companion offline';
-  }
-
-  function applySkin() {
-    const skin = activeSkin();
-    if (!spriteEl) return;
-    spriteEl.style.backgroundImage = `url("${skin.spritesheetUrl}")`;
-    stageEl.setAttribute('aria-label', `${skin.displayName} desktop companion`);
-  }
-
-  function setPetState(next) {
-    const layout = activeLayout();
-    const allowed = layout.states.some((item) => item.name === next);
-    const safe = allowed ? next : 'idle';
-    if (state.petState !== safe) {
-      state.petState = safe;
-      state.frame = 0;
-    }
-    applyFrame();
-  }
-
-  function applyFrame() {
-    if (!spriteEl) return;
-    const layout = activeLayout();
-    const spec = stateSpec();
-    const col = state.frame % frameCount();
-    const row = Math.max(0, Math.min(layout.rows - 1, Number(spec.row) || 0));
-    const x = layout.columns > 1 ? (col / (layout.columns - 1)) * 100 : 0;
-    const y = layout.rows > 1 ? (row / (layout.rows - 1)) * 100 : 0;
-    spriteEl.style.backgroundPosition = `${x}% ${y}%`;
   }
 
   function isRunningSession(session) {
@@ -224,55 +94,16 @@
         if (a.status !== b.status) return (priority[b.status] || 0) - (priority[a.status] || 0);
         return (b.last_message_at || b.updated_at || 0) - (a.last_message_at || a.updated_at || 0);
       })
-      .slice(0, 8);
+      .slice(0, config.maxAttention);
   }
 
-  function openSession(sessionId) {
-    if (!sessionId) return;
-    if (typeof window.loadSession === 'function') {
-      try {
-        window.loadSession(sessionId);
-        return;
-      } catch (_) {
-        // Fall back to the URL path below.
-      }
-    }
-    try {
-      localStorage.setItem('hermes-webui-session', sessionId);
-    } catch (_) {}
-    const url = new URL(window.location.href);
-    url.searchParams.set('session_id', sessionId);
-    window.location.href = url.toString();
-  }
-
-  function renderCards() {
-    if (!bubblesEl) return;
-    const visible = state.attention.slice(0, config.maxCards);
-    bubblesEl.hidden = state.collapsed || visible.length === 0;
-    bubblesEl.innerHTML = visible.map((item) => `
-      <button class="hwc-card" type="button" data-session-id="${escapeHtml(item.session_id)}" data-status="${escapeHtml(item.status)}">
-        <span class="hwc-card__status" aria-hidden="true"></span>
-        <span class="hwc-card__title">${escapeHtml(item.title)}</span>
-        <span class="hwc-card__text">${escapeHtml(item.text || (item.status === 'running' ? 'Hermes is working' : 'Ready to review'))}</span>
-      </button>
-    `).join('');
-  }
-
-  function renderBadge() {
-    if (!badgeEl) return;
-    const count = state.attention.length;
-    badgeEl.hidden = count === 0;
-    badgeEl.classList.toggle('is-expanded', count > 0 && !state.collapsed);
-    badgeEl.textContent = state.collapsed ? String(count) : '⌄';
-    badgeEl.setAttribute('aria-label', state.collapsed ? 'Expand companion updates' : 'Collapse companion updates');
-  }
-
-  function renderState() {
-    const hasRunning = state.attention.some((item) => item.status === 'running');
-    const hasReady = state.attention.some((item) => item.status === 'ready');
-    setPetState(hasRunning ? 'running' : (hasReady ? 'waving' : 'idle'));
-    renderCards();
-    renderBadge();
+  function setConnection(connected) {
+    state.connected = connected;
+    window.__HERMES_WEBUI_DESKTOP_COMPANION_STATUS__ = {
+      connected,
+      lastSnapshotAt: state.lastSnapshotAt,
+      attentionCount: state.attention.length
+    };
   }
 
   async function refreshSessions() {
@@ -282,18 +113,21 @@
       const data = await response.json();
       state.sessions = Array.isArray(data.sessions) ? data.sessions : [];
       state.attention = buildAttention(state.sessions);
-      renderState();
       return true;
-    } catch (error) {
+    } catch (_) {
       state.sessions = [];
       state.attention = [];
-      renderState();
       return false;
     }
   }
 
+  function companionState() {
+    if (state.attention.some((item) => item.status === 'running')) return 'running';
+    if (state.attention.some((item) => item.status === 'ready')) return 'ready';
+    return 'idle';
+  }
+
   function buildSnapshot(reason = 'heartbeat') {
-    const skin = activeSkin();
     return {
       source: 'hermes-webui',
       adapter: ADAPTER_ID,
@@ -307,15 +141,12 @@
         title: document.title || ''
       },
       companion: {
-        skin: skin.id,
-        skinName: skin.displayName,
-        state: state.petState,
-        collapsed: state.collapsed,
+        state: companionState(),
         attentionCount: state.attention.length,
-        attention: state.attention.slice(0, config.maxCards)
+        attention: state.attention.slice(0, config.maxAttention)
       },
       capabilities: {
-        inPagePet: true,
+        inPagePet: false,
         loopback: true,
         canReceiveActions: false
       }
@@ -341,89 +172,7 @@
     }
   }
 
-  function createDom() {
-    if (document.getElementById(ADAPTER_ID)) return;
-
-    rootEl = document.createElement('aside');
-    rootEl.id = ADAPTER_ID;
-    rootEl.className = 'hwc-companion';
-    rootEl.setAttribute('aria-label', 'Hermes WebUI Desktop Companion');
-
-    bubblesEl = document.createElement('section');
-    bubblesEl.className = 'hwc-bubbles';
-    bubblesEl.hidden = true;
-
-    const petRow = document.createElement('div');
-    petRow.className = 'hwc-pet-row';
-
-    stageEl = document.createElement('button');
-    stageEl.className = 'hwc-pet-stage';
-    stageEl.type = 'button';
-    stageEl.title = 'Switch companion skin';
-
-    spriteEl = document.createElement('span');
-    spriteEl.className = 'hwc-pet-sprite';
-    spriteEl.setAttribute('aria-hidden', 'true');
-
-    badgeEl = document.createElement('button');
-    badgeEl.className = 'hwc-pet-badge';
-    badgeEl.type = 'button';
-    badgeEl.hidden = true;
-
-    statusEl = document.createElement('div');
-    statusEl.className = 'hwc-status';
-    statusEl.dataset.state = 'offline';
-    statusEl.setAttribute('role', 'status');
-    statusEl.setAttribute('aria-live', 'polite');
-    statusEl.hidden = !config.showStatus;
-    statusEl.innerHTML = '<span class="hwc-status__dot" aria-hidden="true"></span><span class="hwc-status__label">Companion offline</span>';
-
-    stageEl.appendChild(spriteEl);
-    petRow.append(stageEl, badgeEl, statusEl);
-    rootEl.append(bubblesEl, petRow);
-    document.body.appendChild(rootEl);
-    applySkin();
-  }
-
-  function bindEvents() {
-    stageEl.addEventListener('click', () => {
-      const index = SKINS.findIndex((skin) => skin.id === state.activeSkinId);
-      const next = SKINS[(index + 1) % SKINS.length] || SKINS[0];
-      state.activeSkinId = next.id;
-      try {
-        localStorage.setItem(SKIN_KEY, next.id);
-      } catch (_) {}
-      applySkin();
-      postSnapshot('skin-change');
-    });
-
-    badgeEl.addEventListener('click', () => {
-      state.collapsed = !state.collapsed;
-      try {
-        localStorage.setItem(COLLAPSED_KEY, state.collapsed ? '1' : '0');
-      } catch (_) {}
-      renderState();
-      postSnapshot('collapse-change');
-    });
-
-    bubblesEl.addEventListener('click', (event) => {
-      const card = event.target.closest('.hwc-card');
-      if (!card) return;
-      openSession(card.dataset.sessionId || '');
-    });
-
-    document.addEventListener('visibilitychange', () => {
-      refreshSessions().finally(() => postSnapshot('visibilitychange'));
-    });
-    window.addEventListener('pagehide', () => postSnapshot('unload'));
-  }
-
   function startLoops() {
-    window.setInterval(() => {
-      state.frame = (state.frame + 1) % frameCount();
-      applyFrame();
-    }, config.frameMs);
-
     window.setInterval(() => {
       refreshSessions().finally(() => postSnapshot('poll'));
     }, config.pollMs);
@@ -434,10 +183,11 @@
   }
 
   function start() {
-    createDom();
-    bindEvents();
-    renderState();
     refreshSessions().finally(() => postSnapshot('load'));
+    document.addEventListener('visibilitychange', () => {
+      refreshSessions().finally(() => postSnapshot('visibilitychange'));
+    });
+    window.addEventListener('pagehide', () => postSnapshot('unload'));
     startLoops();
   }
 

@@ -20,31 +20,16 @@ test('extension adapter JavaScript parses', () => {
   }
 });
 
-test('extension adapter resolves spritesheets relative to its own asset URL', async () => {
+test('extension adapter is a bridge and does not render an in-page pet', async () => {
   const adapterText = await readFile(new URL('../extension/companion-adapter.js', import.meta.url), 'utf8');
 
-  assert.match(adapterText, /document\.currentScript/);
-  assert.match(adapterText, /new URL\('\.\s*', CURRENT_SCRIPT_SRC\)/);
-  assert.match(adapterText, /pathname\.includes\('\/assets\/'\)/);
+  assert.match(adapterText, /fetch\('\/api\/sessions'/);
+  assert.match(adapterText, /\/api\/webui\/snapshot/);
+  assert.match(adapterText, /inPagePet:\s*false/);
+  assert.doesNotMatch(adapterText, /document\.createElement/);
+  assert.doesNotMatch(adapterText, /hwc-/);
+  assert.doesNotMatch(adapterText, /spritesheetUrl/);
   assert.doesNotMatch(adapterText, /\/extensions\/pets\//);
-
-  const singleExtensionBase = new URL(
-    '.',
-    'http://127.0.0.1:8787/extensions/companion-adapter.js'
-  );
-  assert.equal(
-    new URL('keeper/spritesheet.webp', new URL('pets/', singleExtensionBase)).toString(),
-    'http://127.0.0.1:8787/extensions/pets/keeper/spritesheet.webp'
-  );
-
-  const nestedExtensionBase = new URL(
-    '.',
-    'http://127.0.0.1:8787/extensions/desktop-companion/assets/companion-adapter.js'
-  );
-  assert.equal(
-    new URL('keeper/spritesheet.webp', new URL('../pets/', nestedExtensionBase)).toString(),
-    'http://127.0.0.1:8787/extensions/desktop-companion/pets/keeper/spritesheet.webp'
-  );
 });
 
 test('extension manifest bundles adapter assets', async () => {
@@ -58,7 +43,7 @@ test('extension manifest bundles adapter assets', async () => {
   assert.equal(entry.id, 'desktop-companion');
   assert.equal(entry.name, 'Hermes WebUI Desktop Companion');
   assert.deepEqual(entry.scripts, ['companion-adapter.js']);
-  assert.deepEqual(entry.stylesheets, ['companion-adapter.css']);
+  assert.deepEqual(entry.stylesheets, []);
   assert.deepEqual(entry.sidecar, {
     type: 'loopback',
     origin: 'http://127.0.0.1:17787',
@@ -76,7 +61,7 @@ test('extension metadata follows the PR10 extension entry shape', async () => {
   assert.equal(entry.author, 'franksong2702');
   assert.deepEqual(entry.assets, {
     scripts: ['companion-adapter.js'],
-    stylesheets: ['companion-adapter.css']
+    stylesheets: []
   });
   assert.deepEqual(entry.capabilities, ['manifest-bundle', 'loopback-sidecar']);
   assert.ok(!entry.capabilities.includes('sidecar-proxy'));
@@ -97,18 +82,14 @@ test('extension metadata follows the PR10 extension entry shape', async () => {
   });
   assert.equal(entry.permissions.webui_navigation, true);
   assert.deepEqual(entry.permissions.dom, {
-    owned: true,
+    owned: false,
     mutates_core_views: false
   });
   assert.deepEqual(entry.permissions.storage, {
-    owned: [
-      'hermes-companion-pet-collapsed',
-      'hermes-companion-pet-skin'
-    ],
+    owned: [],
     shared_webui_keys: [
       'hermes-session-viewed-counts',
-      'hermes-session-completion-unread',
-      'hermes-webui-session'
+      'hermes-session-completion-unread'
     ]
   });
   assert.equal(entry.permissions.loopback_sidecar, true);

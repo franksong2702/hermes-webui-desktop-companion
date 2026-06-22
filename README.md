@@ -22,15 +22,15 @@ The first milestone is intentionally small:
 ```text
 Hermes WebUI page
   -> HERMES_WEBUI_EXTENSION_MANIFEST=manifest.json
-  -> injected /extensions/companion-adapter.js and companion-adapter.css
+  -> injected /extensions/companion-adapter.js
   -> http://127.0.0.1:17787 loopback API
   -> Tauri desktop companion runtime
 ```
 
 The extension plugin is trusted JavaScript running in the Hermes WebUI origin.
-It creates an extension-owned Desktop Pet overlay, animates the bundled pet
-spritesheet, polls existing WebUI session APIs for lightweight attention state,
-and sends a companion snapshot to the local loopback server.
+It does not render a browser pet. It polls existing WebUI session APIs for
+lightweight attention state and sends a companion snapshot to the local loopback
+server so the native desktop pet can react on the desktop.
 
 `extension/manifest.json` also declares the desktop runtime as a loopback
 sidecar:
@@ -49,9 +49,8 @@ This field is descriptive until Hermes WebUI lands a formal sidecar manifest
 contract. It does not imply auto-install, auto-start, proxying, or native host
 permission.
 
-It should stay small, auditable, additive, and reversible. It must not replace
-broad WebUI containers or depend on private DOM structure where an existing API
-can be used.
+It should stay small, auditable, additive, and reversible. It must not render
+browser UI, replace WebUI containers, or depend on private DOM structure.
 
 Naming note: "Desktop Companion" is the project boundary. "Desktop Pet" is the
 current desktop surface inside that companion. If the community uses "Desktop
@@ -81,10 +80,8 @@ HERMES_WEBUI_EXTENSION_MANIFEST=manifest.json \
 ./start.sh
 ```
 
-Then open Hermes WebUI. A small `Companion` status pill should appear in the
-lower-right corner of the Desktop Pet overlay. The pet should animate even if
-the companion loopback is offline; when the loopback is running it receives
-snapshots at `POST /api/webui/snapshot`.
+Then open Hermes WebUI. No browser pet should appear. When the loopback is
+running it receives snapshots at `POST /api/webui/snapshot`.
 
 You can also start WebUI in plugin mode directly:
 
@@ -108,7 +105,6 @@ adapter with explicit asset lists:
 
 ```bash
 HERMES_WEBUI_EXTENSION_DIR=/path/to/hermes-webui-desktop-companion/extension \
-HERMES_WEBUI_EXTENSION_STYLESHEET_URLS=/extensions/companion-adapter.css \
 HERMES_WEBUI_EXTENSION_SCRIPT_URLS=/extensions/companion-adapter.js \
 ./start.sh
 ```

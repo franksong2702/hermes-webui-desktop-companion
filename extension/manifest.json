@@ -7,9 +7,7 @@
       "scripts": [
         "companion-adapter.js"
       ],
-      "stylesheets": [
-        "companion-adapter.css"
-      ],
+      "stylesheets": [],
       "sidecar": {
         "type": "loopback",
         "origin": "http://127.0.0.1:17787",

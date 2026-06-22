@@ -9,9 +9,7 @@
     "scripts": [
       "companion-adapter.js"
     ],
-    "stylesheets": [
-      "companion-adapter.css"
-    ]
+    "stylesheets": []
   },
   "capabilities": [
     "manifest-bundle",
@@ -38,18 +36,15 @@
     },
     "webui_navigation": true,
     "dom": {
-      "owned": true,
+      "owned": false,
       "mutates_core_views": false
     },
     "storage": {
       "owned": [
-        "hermes-companion-pet-collapsed",
-        "hermes-companion-pet-skin"
       ],
       "shared_webui_keys": [
         "hermes-session-viewed-counts",
-        "hermes-session-completion-unread",
-        "hermes-webui-session"
+        "hermes-session-completion-unread"
       ]
     },
     "loopback_sidecar": true,
