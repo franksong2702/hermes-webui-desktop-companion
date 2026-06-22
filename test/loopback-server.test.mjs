@@ -5,6 +5,19 @@ import { createServer, normalizePort } from '../src/loopback-server.mjs';
 let server;
 let baseUrl;
 
+async function waitForCommand(base, path, predicate = () => true, timeoutMs = 1200) {
+  const deadline = Date.now() + timeoutMs;
+  let latest = null;
+  while (Date.now() < deadline) {
+    const response = await fetch(`${base}${path}`);
+    const body = await response.json();
+    latest = body.command || null;
+    if (latest && predicate(latest)) return latest;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  assert.fail(`timed out waiting for command at ${path}: ${JSON.stringify(latest)}`);
+}
+
 before(async () => {
   server = createServer({ allowedOrigins: 'http://127.0.0.1:8787' });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -88,6 +101,261 @@ test('pet attention is derived from latest WebUI snapshot', async () => {
   assert.equal(body.sessions.length, 1);
   assert.equal(body.sessions[0].session_id, 's1');
   assert.equal(body.sessions[0].status, 'running');
+});
+
+test('pet open_session queues browser navigation command', async () => {
+  const server = createServer({ focusExistingBrowserTab: false, openExternal: () => true });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const address = server.address();
+  const base = `http://${address.address}:${address.port}`;
+  try {
+    await fetch(`${base}/api/webui/snapshot`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        source: 'hermes-webui',
+        page: { href: 'http://127.0.0.1:8787/session/current' }
+      })
+    });
+
+    const open = await fetch(`${base}/api/pet/open_session`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ session_id: 'abc123' })
+    });
+    const opened = await open.json();
+    assert.equal(open.status, 200);
+    assert.equal(opened.queued, true);
+    assert.equal(opened.opened, true);
+    assert.equal(opened.url, 'http://127.0.0.1:8787/session/abc123');
+
+    const navigation = await fetch(`${base}/api/pet/navigation`);
+    const body = await navigation.json();
+    assert.equal(navigation.status, 200);
+    assert.equal(body.command.session_id, 'abc123');
+
+    const ack = await fetch(`${base}/api/pet/navigation_ack`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id: body.command.id })
+    });
+    const ackBody = await ack.json();
+    assert.equal(ack.status, 200);
+    assert.equal(ackBody.ok, true);
+  } finally {
+    await new Promise((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
+});
+
+test('pet commands accept short Hermes session ids', async () => {
+  const server = createServer({ focusExistingBrowserTab: false, openExternal: () => true });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const address = server.address();
+  const base = `http://${address.address}:${address.port}`;
+  try {
+    await fetch(`${base}/api/webui/snapshot`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        source: 'hermes-webui',
+        page: { href: 'http://127.0.0.1:8787/session/current' }
+      })
+    });
+
+    const open = await fetch(`${base}/api/pet/open_session`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ session_id: 's1' })
+    });
+    const opened = await open.json();
+    assert.equal(open.status, 200);
+    assert.equal(opened.url, 'http://127.0.0.1:8787/session/s1');
+
+    const actionPromise = fetch(`${base}/api/clarify/respond`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ session_id: 's1', response: 'Use option A', clarify_id: 'clarify-1' })
+    });
+    const command = await waitForCommand(base, '/api/pet/actions', (item) => item.type === 'clarify.respond');
+    assert.equal(command.session_id, 's1');
+    assert.equal(command.body.session_id, 's1');
+
+    await fetch(`${base}/api/pet/action_ack`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id: command.id, ok: true, status: 200, result: { ok: true } })
+    });
+    const action = await actionPromise;
+    assert.equal(action.status, 200);
+  } finally {
+    await new Promise((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
+});
+
+test('pet open_session focuses an existing WebUI browser tab', async () => {
+  const focusCalls = [];
+  const server = createServer({
+    focusExistingBrowserTab: (url, origin) => {
+      focusCalls.push({ url, origin });
+      return { focused: true, reused: true };
+    },
+    openExternal: () => {
+      throw new Error('openExternal should not run when an existing tab is reused');
+    }
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const address = server.address();
+  const base = `http://${address.address}:${address.port}`;
+  try {
+    await fetch(`${base}/api/webui/snapshot`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        source: 'hermes-webui',
+        page: { href: 'http://127.0.0.1:8787/session/current' }
+      })
+    });
+
+    const open = await fetch(`${base}/api/pet/open_session`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ session_id: 'abc123' })
+    });
+    const body = await open.json();
+
+    assert.equal(open.status, 200);
+    assert.equal(body.queued, true);
+    assert.equal(body.focused, true);
+    assert.equal(body.reused, true);
+    assert.equal(body.opened, false);
+    assert.deepEqual(focusCalls, [{
+      url: 'http://127.0.0.1:8787/session/abc123',
+      origin: 'http://127.0.0.1:8787'
+    }]);
+  } finally {
+    await new Promise((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
+});
+
+test('pet open_session waits for bridge ack when sending a quick reply draft', async () => {
+  const server = createServer({
+    focusExistingBrowserTab: () => ({ focused: true, reused: true }),
+    openExternal: () => {
+      throw new Error('openExternal should not run when an existing tab is reused');
+    }
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const address = server.address();
+  const base = `http://${address.address}:${address.port}`;
+  try {
+    await fetch(`${base}/api/webui/snapshot`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        source: 'hermes-webui',
+        page: { href: 'http://127.0.0.1:8787/session/current' }
+      })
+    });
+
+    const openPromise = fetch(`${base}/api/pet/open_session`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ session_id: 'abc123', draft: 'hello from pet', autosend: true })
+    });
+
+    const command = await waitForCommand(base, '/api/pet/navigation', (item) => item.session_id === 'abc123');
+    assert.equal(command.session_id, 'abc123');
+    assert.equal(command.draft, 'hello from pet');
+    assert.equal(command.autosend, true);
+
+    await fetch(`${base}/api/pet/navigation_ack`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id: command.id })
+    });
+
+    const open = await openPromise;
+    const opened = await open.json();
+    assert.equal(open.status, 200);
+    assert.equal(opened.consumed, true);
+    assert.equal(opened.focused, true);
+    assert.equal(opened.reused, true);
+  } finally {
+    await new Promise((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
+});
+
+test('pet approval actions are executed by the WebUI action bridge', async () => {
+  const server = createServer();
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const address = server.address();
+  const base = `http://${address.address}:${address.port}`;
+  try {
+    const actionPromise = fetch(`${base}/api/approval/respond`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ session_id: 'abc123', choice: 'once', approval_id: 'approval-1' })
+    });
+
+    const command = await waitForCommand(base, '/api/pet/actions', (item) => item.type === 'approval.respond');
+    assert.equal(command.type, 'approval.respond');
+    assert.deepEqual(command.body, {
+      session_id: 'abc123',
+      choice: 'once',
+      approval_id: 'approval-1'
+    });
+
+    const ack = await fetch(`${base}/api/pet/action_ack`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id: command.id, ok: true, status: 200, result: { ok: true } })
+    });
+    assert.equal(ack.status, 200);
+
+    const response = await actionPromise;
+    const result = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(result.ok, true);
+    assert.equal(result.queued, true);
+    assert.equal(result.command.type, 'approval.respond');
+  } finally {
+    await new Promise((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
+});
+
+test('pet register and preference routes are owned by the sidecar', async () => {
+  const register = await fetch(`${baseUrl}/api/pet/register`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ pid: 12345, base_url: 'http://127.0.0.1:17787' })
+  });
+  const registerBody = await register.json();
+  assert.equal(register.status, 200);
+  assert.equal(registerBody.ok, true);
+
+  const preferencePost = await fetch(`${baseUrl}/api/pet/preference`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ enabled: false })
+  });
+  const preferencePostBody = await preferencePost.json();
+  assert.equal(preferencePost.status, 200);
+  assert.equal(preferencePostBody.ok, true);
+
+  const preferenceGet = await fetch(`${baseUrl}/api/pet/preference`);
+  const preferenceGetBody = await preferenceGet.json();
+  assert.equal(preferenceGet.status, 200);
+  assert.equal(preferenceGetBody.ok, true);
 });
 
 test('desktop pet pages and assets are served by loopback', async () => {

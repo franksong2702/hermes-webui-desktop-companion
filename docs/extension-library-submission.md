@@ -107,7 +107,7 @@ WebUI so it rereads its configured extension manifest.
    ./start.sh
    ```
 
-4. Start the native pet host only when testing the desktop surface:
+4. Start the native pet host to show and use the desktop pet surface:
 
    ```bash
    npm run desktop:dev

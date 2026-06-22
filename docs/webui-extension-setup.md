@@ -35,7 +35,10 @@ it before the adapter loads if needed:
 ```
 
 In normal Hermes WebUI usage, prefer leaving the defaults unless the companion
-server is intentionally bound to another loopback port.
+server is intentionally bound to another loopback port. This override is
+trusted local configuration; do not point it at an untrusted remote origin
+because the adapter sends authenticated WebUI attention state and executes
+queued desktop-pet actions.
 
 For convenience, this repo also includes a wrapper:
 
