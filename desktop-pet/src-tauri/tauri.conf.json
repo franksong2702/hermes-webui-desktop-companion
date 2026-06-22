@@ -5,7 +5,7 @@
   "identifier": "dev.hermes-webui.desktop-companion",
   "build": {
     "devUrl": "http://127.0.0.1:17787",
-    "frontendDist": "../dist"
+    "frontendDist": "../web"
   },
   "app": {
     "macOSPrivateApi": true,

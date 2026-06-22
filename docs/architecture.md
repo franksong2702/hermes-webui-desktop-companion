@@ -60,6 +60,24 @@ It owns desktop-only behavior:
 It treats the loopback protocol as its boundary with WebUI, not WebUI Python
 routes.
 
+The sidecar-served `/pet` and `/pet/bubbles` pages are native-window webview
+content for the Tauri shell. They are not injected into the Hermes WebUI browser
+page, and the WebUI adapter does not render an in-page pet.
+
+The user-visible desktop pet experience requires both the loopback sidecar and
+the native desktop host. The WebUI adapter alone is only the browser bridge that
+publishes attention state and executes authenticated WebUI actions.
+
+Current startup flow:
+
+1. The loopback sidecar starts on `127.0.0.1:17787`.
+2. The native host loads pet windows, bundled skins, and user preferences.
+3. Hermes WebUI loads the manifest-bundled adapter in the browser page.
+4. The adapter posts snapshots to the sidecar.
+5. The native host reads sidecar attention state and renders desktop bubbles.
+6. Pet actions are queued in the sidecar and executed by the adapter inside the
+   authenticated WebUI browser origin.
+
 `winui/` remains reserved for a future Windows-native host if we later choose to
 replace or supplement the Tauri shell on Windows.
 
@@ -70,6 +88,7 @@ The WebUI adapter may use:
 - documented Hermes WebUI extension loading and manifest asset bundling
 - existing authenticated WebUI APIs
 - stable browser primitives
+- guarded internal WebUI globals while no formal extension runtime API exists
 
 It should avoid:
 

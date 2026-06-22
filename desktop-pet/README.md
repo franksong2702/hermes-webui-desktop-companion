@@ -1,41 +1,42 @@
 # Hermes Desktop Pet
 
-User-facing product docs live in
-[`../docs/desktop-pet.md`](../docs/desktop-pet.md). This file documents the
-native Tauri shell, local development flow, route ownership, skin manifests,
-and packaging boundary.
+This file documents the native Tauri shell, local development flow, route
+ownership, skin manifests, and packaging boundary.
 
-This is a thin desktop shell for the optional standalone Hermes pet page.
+This is the native desktop host for Desktop Companion. It renders the
+user-visible desktop pet and talks to the local loopback sidecar.
 
 It intentionally does not reimplement Hermes UI. At launch, the shell loads the
-current loopback WebUI base URL supplied by `/api/pet/launch` through
-`HERMES_DESKTOP_PET_WEBUI_BASE`, then opens:
+current loopback sidecar base URL supplied through
+`HERMES_DESKTOP_COMPANION_BASE` or `HERMES_DESKTOP_PET_WEBUI_BASE`, then opens:
 
 ```text
-<current WebUI base>/pet
-<current WebUI base>/pet/bubbles
+<current sidecar base>/pet
+<current sidecar base>/pet/bubbles
 ```
 
 If the shell is run directly without that environment variable, it falls back to
-`http://127.0.0.1:8787` for local development.
+`http://127.0.0.1:17787` for local development.
 
-The Hermes WebUI server must already be running first. Starting WebUI alone does
-not show the pet; the pet only appears when this Tauri shell is launched. The
-WebUI Settings → Appearance desktop pet switch is a long-term preference: when
-enabled, the desktop WebUI page will try to start the pet on the next page load.
-Turning the same switch off calls `/api/pet/close`.
+The `/pet` and `/pet/bubbles` pages are loaded inside Tauri native windows.
+They are not injected into the Hermes WebUI browser page, and the adapter does
+not render an in-page pet.
 
-For local testing:
+The companion sidecar and an extension-enabled Hermes WebUI page must already
+be running for session attention and WebUI actions. Starting WebUI alone does
+not show the pet; the pet appears only when this native shell is launched.
+
+For local testing, start the sidecar from the repository root:
 
 ```bash
-HERMES_WEBUI_PORT=8787 ./start.sh
+npm run dev
 ```
 
 Then run the shell from this directory:
 
 ```bash
 npm install
-HERMES_DESKTOP_PET_WEBUI_BASE=http://127.0.0.1:8787 npm run dev
+HERMES_DESKTOP_COMPANION_BASE=http://127.0.0.1:17787 npm run dev
 ```
 
 Window intent:
@@ -57,18 +58,17 @@ closing countdown and a `Got it` action. A zero-attention update from the main
 pet page must not hide an already-visible non-session bubble mode such as the
 Welcome Card.
 
-First-time shell preparation is driven by WebUI, not by a native install card in
-this shell. Settings and `/pet wakeup` show setup progress while `/api/pet/install`
-prepares the local shell; the native bubble window should not flash a transient
-install card before the pet appears.
+First-time shell preparation is owned by this companion project, not by Hermes
+WebUI core. WebUI only loads the adapter; it does not install or launch the
+native host in the current milestone.
 
 The default bundled skin is `keeper` / `May`. Additional skins can be added under
-`static/pets/<id>/pet.json` plus a local spritesheet; the WebUI exposes the
+`extension/pets/<id>/pet.json` plus a local spritesheet; the sidecar exposes the
 detected list through `/api/pet/skins`.
 
 Skin manifests use:
 
-- `id`: directory-safe skin id matching `static/pets/<id>`
+- `id`: directory-safe skin id matching `extension/pets/<id>`
 - `displayName`: human-readable name
 - `spritesheetPath`: local spritesheet path inside the skin directory
 - optional `layout`: normalized spritesheet layout
@@ -77,30 +77,25 @@ Skin manifests use:
   - states are `idle`, `running-right`, `running-left`, `waving`, `jumping`,
     `failed`, `waiting`, `running`, and `review`
 
-The shell is backed by lazy WebUI endpoints:
+The shell is backed by loopback sidecar endpoints:
 
 - `/pet` serves the standalone pet page.
 - `/pet/bubbles` serves the separate bubble-window page.
 - `/api/pet/attention` returns the final display list for sessions that need attention.
 - `/api/pet/skins` lists bundled and locally added skins.
-- `/api/pet/navigation` lets an already-open WebUI tab consume pet commands.
-- `/api/pet/navigation_ack` acknowledges that a WebUI tab consumed a pet command.
+- `/api/pet/navigation` lets the WebUI adapter consume pet commands.
+- `/api/pet/navigation_ack` acknowledges that the WebUI adapter consumed a pet command.
+- `/api/pet/actions` lets the WebUI adapter consume approval and clarify actions.
+- `/api/pet/action_ack` acknowledges that the WebUI adapter executed a pet action.
+- `/api/approval/respond` queues an approval response for the WebUI adapter.
+- `/api/clarify/respond` queues a clarification response for the WebUI adapter.
 - `/api/pet/open_session` queues a session jump or reply through the existing
   WebUI bridge path, waits briefly for an acknowledgement from an open WebUI
   page, and uses a sanitized loopback browser fallback only when no page consumes
   the command.
-- `/api/pet/register` records the native shell PID and current WebUI base URL in
-  the active WebUI state directory so launch/status can distinguish isolated
-  runtimes such as `8788` from the default `8787` pet.
-- `/api/pet/status` checks whether a launchable native shell is already present
-  and running for the current WebUI base URL.
-- `/api/pet/install` prepares the local native shell when it is missing.
-- `/api/pet/launch` starts the native desktop shell from a loopback WebUI
-  request when an installed app, built binary, or local Tauri dev setup is
-  available. Launch is single-instance for the same WebUI base URL; a registered
-  pet from another base URL is closed before launching the current one, while an
-  unregistered existing process is left alone and reported as a conflict.
-- `/api/pet/close` stops the running desktop pet from a loopback WebUI request.
+- `/api/pet/register` records that a native shell reached the sidecar.
+- `/api/pet/preference` keeps the current close/enable preference local to the
+  sidecar-backed pet flow.
 
 This is a desktop-only beta for macOS and Windows. macOS has been locally
 verified; Windows is source-compatible but should be treated as beta until

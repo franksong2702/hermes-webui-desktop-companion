@@ -11,6 +11,18 @@ as the main WebUI extension APIs roll forward.
 - Browser access to existing authenticated WebUI session APIs.
 - Local loopback access from the WebUI page to `http://127.0.0.1:17787`.
 
+The current adapter also uses guarded Hermes WebUI browser globals because core
+does not yet expose a formal extension runtime API for live session state:
+
+- `S` for active session and composer state
+- `_allSessions` for sidebar session rows
+- `INFLIGHT` for live streaming/process text
+- `_currentPanel`, `switchPanel`, `_saveComposerDraftNow`, and `send` for
+  desktop-pet quick replies and action flows
+
+Every use is wrapped so the adapter can fail closed instead of breaking the
+WebUI page when a global is absent or changes shape.
+
 ## Declared For Future WebUI Support
 
 - PR #10-style `extension.json` entry metadata:
@@ -47,6 +59,7 @@ as the main WebUI extension APIs roll forward.
 ## Verification Before Extension-Library Submission
 
 - `npm test`
+- `node --check extension/companion-adapter.js`
 - confirm `extension/manifest.json` parses as JSON
 - confirm `extension/extension.json` parses as JSON and matches the PR #10
   entry shape

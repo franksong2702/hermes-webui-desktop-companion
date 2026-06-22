@@ -58,6 +58,20 @@ fn set_native_window_level(window: &WebviewWindow, level: objc2_app_kit::NSWindo
 #[cfg(not(target_os = "macos"))]
 fn set_native_window_level(_window: &WebviewWindow, _level: i32) {}
 
+#[cfg(target_os = "macos")]
+fn set_native_ignore_cursor_events(window: &WebviewWindow, ignore: bool) {
+    use objc2_app_kit::NSWindow;
+    if let Ok(ptr) = window.ns_window() {
+        if !ptr.is_null() {
+            let ns_window: &NSWindow = unsafe { &*ptr.cast() };
+            ns_window.setIgnoresMouseEvents(ignore);
+        }
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn set_native_ignore_cursor_events(_window: &WebviewWindow, _ignore: bool) {}
+
 fn set_pet_window_level(window: &WebviewWindow) {
     let _ = window;
 }
@@ -94,12 +108,12 @@ fn first_mouse_window_class() -> &'static objc2::runtime::AnyClass {
         Bool::YES
     }
 
-    let class_name = c"HermesBubbleWindow";
+    let class_name = c"HermesFirstClickWindow";
     if let Some(existing) = AnyClass::get(class_name) {
         return existing;
     }
     let mut builder = ClassBuilder::new(class_name, objc2::class!(NSWindow))
-        .expect("failed to allocate bubble window class");
+        .expect("failed to allocate first-click window class");
     unsafe {
         builder.add_method(
             sel!(sendEvent:),
@@ -118,14 +132,14 @@ fn first_mouse_window_class() -> &'static objc2::runtime::AnyClass {
 }
 
 #[cfg(target_os = "macos")]
-fn install_bubble_first_click_handler(window: &WebviewWindow) {
+fn install_first_click_handler(window: &WebviewWindow) {
     use objc2::runtime::AnyObject;
 
     if let Ok(ptr) = window.ns_window() {
         if !ptr.is_null() {
             let ns_window: &AnyObject = unsafe { &*ptr.cast() };
             let current_name = ns_window.class().name().to_string_lossy();
-            if current_name.as_ref() != "HermesBubbleWindow" {
+            if current_name.as_ref() != "HermesFirstClickWindow" {
                 let next_class = first_mouse_window_class();
                 unsafe {
                     let _ = AnyObject::set_class(ns_window, next_class);
@@ -136,7 +150,7 @@ fn install_bubble_first_click_handler(window: &WebviewWindow) {
 }
 
 #[cfg(not(target_os = "macos"))]
-fn install_bubble_first_click_handler(_window: &WebviewWindow) {}
+fn install_first_click_handler(_window: &WebviewWindow) {}
 
 #[cfg(target_os = "macos")]
 fn attach_bubble_child_window(pet_window: &WebviewWindow, bubble_window: &WebviewWindow) {
@@ -162,15 +176,18 @@ fn attach_bubble_child_window(_pet_window: &WebviewWindow, _bubble_window: &Webv
 
 fn restore_pet_window_layers(app: &tauri::AppHandle) {
     if let Some(pet_window) = app.get_webview_window("pet") {
+        let _ = pet_window.set_ignore_cursor_events(false);
+        set_native_ignore_cursor_events(&pet_window, false);
         let _ = pet_window.set_always_on_top(false);
         let _ = pet_window.set_always_on_top(true);
         set_pet_window_level(&pet_window);
+        install_first_click_handler(&pet_window);
     }
     if let Some(bubble_window) = app.get_webview_window("pet_bubbles") {
         let _ = bubble_window.set_always_on_top(false);
         let _ = bubble_window.set_always_on_top(true);
         set_bubble_window_level(&bubble_window);
-        install_bubble_first_click_handler(&bubble_window);
+        install_first_click_handler(&bubble_window);
     }
 }
 
@@ -269,10 +286,11 @@ fn apply_bubble_visibility(
         return;
     };
     let _ = bubble_window.set_ignore_cursor_events(!visible);
+    set_native_ignore_cursor_events(&bubble_window, !visible);
     if visible {
         let _ = bubble_window.set_always_on_top(true);
         set_bubble_window_level(&bubble_window);
-        install_bubble_first_click_handler(&bubble_window);
+        install_first_click_handler(&bubble_window);
         let _ = bubble_window.show();
         if focus {
             let _ = bubble_window.set_focus();
@@ -361,14 +379,18 @@ fn main() {
             navigate_window_to_webui(app, "pet", "/pet");
             navigate_window_to_webui(app, "pet_bubbles", "/pet/bubbles");
             if let Some(pet_window) = app.get_webview_window("pet") {
+                let _ = pet_window.set_ignore_cursor_events(false);
+                set_native_ignore_cursor_events(&pet_window, false);
                 let _ = pet_window.set_always_on_top(true);
                 set_pet_window_level(&pet_window);
+                install_first_click_handler(&pet_window);
             }
             if let Some(bubble_window) = app.get_webview_window("pet_bubbles") {
                 let _ = bubble_window.set_ignore_cursor_events(true);
+                set_native_ignore_cursor_events(&bubble_window, true);
                 let _ = bubble_window.set_always_on_top(true);
                 set_bubble_window_level(&bubble_window);
-                install_bubble_first_click_handler(&bubble_window);
+                install_first_click_handler(&bubble_window);
             }
             if let (Some(pet_window), Some(bubble_window)) = (
                 app.get_webview_window("pet"),
@@ -396,7 +418,10 @@ fn main() {
                 let _ = runner_handle.run_on_main_thread(move || {
                     apply_bubble_visibility(&control_handle, &visible_state, visible, focus);
                     if let Some(window) = window_handle.get_webview_window("pet") {
+                        let _ = window.set_ignore_cursor_events(false);
+                        set_native_ignore_cursor_events(&window, false);
                         set_pet_window_level(&window);
+                        install_first_click_handler(&window);
                         let _ = window.show();
                     }
                 });
@@ -408,11 +433,13 @@ fn main() {
                 let visible = parse_attention_visibility(event.payload());
                 let handle_for_window = handle.clone();
                 let visible_state = attention_visible_state.clone();
-                let should_hide =
-                    !visible && visible_state.lock().map(|state| !*state).unwrap_or(true);
+                let should_apply = visible_state
+                    .lock()
+                    .map(|state| *state != visible)
+                    .unwrap_or(true);
                 let _ = handle.run_on_main_thread(move || {
-                    if should_hide {
-                        apply_bubble_visibility(&handle_for_window, &visible_state, false, false);
+                    if should_apply {
+                        apply_bubble_visibility(&handle_for_window, &visible_state, visible, false);
                     }
                 });
             });

@@ -30,14 +30,19 @@
   "permissions": {
     "webui_api": {
       "read": [
-        "sessions"
+        "sessions",
+        "session"
       ],
-      "write": []
+      "write": [
+        "approval/respond",
+        "clarify/respond",
+        "session/draft"
+      ]
     },
-    "webui_navigation": false,
+    "webui_navigation": true,
     "dom": {
       "owned": false,
-      "mutates_core_views": false
+      "mutates_core_views": true
     },
     "storage": {
       "owned": [
