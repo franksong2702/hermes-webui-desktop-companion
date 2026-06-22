@@ -20,6 +20,33 @@ test('extension adapter JavaScript parses', () => {
   }
 });
 
+test('extension adapter resolves spritesheets relative to its own asset URL', async () => {
+  const adapterText = await readFile(new URL('../extension/companion-adapter.js', import.meta.url), 'utf8');
+
+  assert.match(adapterText, /document\.currentScript/);
+  assert.match(adapterText, /new URL\('\.\s*', CURRENT_SCRIPT_SRC\)/);
+  assert.match(adapterText, /pathname\.includes\('\/assets\/'\)/);
+  assert.doesNotMatch(adapterText, /\/extensions\/pets\//);
+
+  const singleExtensionBase = new URL(
+    '.',
+    'http://127.0.0.1:8787/extensions/companion-adapter.js'
+  );
+  assert.equal(
+    new URL('keeper/spritesheet.webp', new URL('pets/', singleExtensionBase)).toString(),
+    'http://127.0.0.1:8787/extensions/pets/keeper/spritesheet.webp'
+  );
+
+  const nestedExtensionBase = new URL(
+    '.',
+    'http://127.0.0.1:8787/extensions/desktop-companion/assets/companion-adapter.js'
+  );
+  assert.equal(
+    new URL('keeper/spritesheet.webp', new URL('../pets/', nestedExtensionBase)).toString(),
+    'http://127.0.0.1:8787/extensions/desktop-companion/pets/keeper/spritesheet.webp'
+  );
+});
+
 test('extension manifest bundles adapter assets', async () => {
   const manifestText = await readFile(new URL('../extension/manifest.json', import.meta.url), 'utf8');
   const manifest = JSON.parse(manifestText);

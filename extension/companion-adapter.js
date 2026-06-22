@@ -3,10 +3,20 @@
   if (window.__HERMES_WEBUI_DESKTOP_COMPANION_LOADED__) return;
   window.__HERMES_WEBUI_DESKTOP_COMPANION_LOADED__ = true;
 
+  const CURRENT_SCRIPT_SRC = document.currentScript && document.currentScript.src;
+  const ASSET_BASE = CURRENT_SCRIPT_SRC ? new URL('.', CURRENT_SCRIPT_SRC) : new URL('/extensions/', window.location.origin);
+  const PETS_BASE = CURRENT_SCRIPT_SRC && new URL(CURRENT_SCRIPT_SRC).pathname.includes('/assets/')
+    ? new URL('../pets/', ASSET_BASE)
+    : new URL('pets/', ASSET_BASE);
+
   const VIEWED_COUNTS_KEY = 'hermes-session-viewed-counts';
   const COMPLETION_UNREAD_KEY = 'hermes-session-completion-unread';
   const COLLAPSED_KEY = 'hermes-companion-pet-collapsed';
   const SKIN_KEY = 'hermes-companion-pet-skin';
+
+  function assetUrl(relativePath) {
+    return new URL(relativePath, PETS_BASE).toString();
+  }
 
   const DEFAULT_LAYOUT = {
     columns: 8,
@@ -30,19 +40,19 @@
     {
       id: 'keeper',
       displayName: 'May',
-      spritesheetUrl: '/extensions/pets/keeper/spritesheet.webp',
+      spritesheetUrl: assetUrl('keeper/spritesheet.webp'),
       layout: DEFAULT_LAYOUT
     },
     {
       id: 'shiba',
       displayName: 'Shiba',
-      spritesheetUrl: '/extensions/pets/shiba/spritesheet.webp',
+      spritesheetUrl: assetUrl('shiba/spritesheet.webp'),
       layout: DEFAULT_LAYOUT
     },
     {
       id: 'courier',
       displayName: 'Courier Bot',
-      spritesheetUrl: '/extensions/pets/courier/spritesheet.webp',
+      spritesheetUrl: assetUrl('courier/spritesheet.webp'),
       layout: DEFAULT_LAYOUT
     }
   ];
@@ -437,4 +447,3 @@
     start();
   }
 })();
-
