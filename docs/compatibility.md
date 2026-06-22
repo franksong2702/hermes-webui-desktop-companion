@@ -13,7 +13,13 @@ as the main WebUI extension APIs roll forward.
 
 ## Declared For Future WebUI Support
 
-- Manifest `sidecar` metadata:
+- PR #10-style `extension.json` entry metadata:
+  - `capabilities: ["manifest-bundle", "loopback-sidecar"]`
+  - no `sidecar-proxy` declaration until core ships that capability
+  - lifecycle split for WebUI assets, sidecar start, and native host start
+  - purpose-based permissions for WebUI API reads, navigation, storage, DOM,
+    loopback sidecar, native host, and bundled asset serving
+- Manifest or entry `sidecar` metadata:
   - `type: "loopback"`
   - `origin: "http://127.0.0.1:17787"`
   - `health_path: "/health"`
@@ -42,6 +48,8 @@ as the main WebUI extension APIs roll forward.
 
 - `npm test`
 - confirm `extension/manifest.json` parses as JSON
+- confirm `extension/extension.json` parses as JSON and matches the PR #10
+  entry shape
 - confirm `/health` returns `status: "ok"`
 - confirm WebUI loads the adapter from the manifest bundle
 - confirm the pet remains usable when the sidecar is offline
