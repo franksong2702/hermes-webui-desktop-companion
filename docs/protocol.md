@@ -180,6 +180,12 @@ extension snapshot.
 When no WebUI page has reported a snapshot yet, `sessions` is empty and
 `source` is `empty`.
 
+Snapshots marked with `reason: "unload"` and timestamped snapshots older than
+30 seconds do not produce attention rows. The sidecar may still keep the latest
+snapshot for diagnostics or loopback origin discovery, but stale browser state
+must not keep a desktop bubble alive after the WebUI page has unloaded or stopped
+reporting.
+
 The standalone extension does not infer completed-session attention from old
 message counts without a WebUI unread baseline. Attention rows are derived from
 current WebUI frontend state:
