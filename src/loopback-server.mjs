@@ -19,6 +19,7 @@ const PET_BRIDGE_POLL_FRESH_MS = 4_000;
 const PET_ACTION_TTL_MS = 60_000;
 const PET_ACTION_MAX_COMMANDS = 50;
 const PET_ACTION_WAIT_MS = 7_000;
+const PET_SNAPSHOT_ATTENTION_TTL_MS = 30_000;
 const DEFAULT_PREFERENCES = Object.freeze({
   enabled: true,
   allow_direct_send: false,
@@ -197,7 +198,22 @@ async function serveStatic(res, root, requestPath, headers = {}) {
   return true;
 }
 
-function latestAttention(latestSnapshot) {
+function snapshotTimestampMs(latestSnapshot) {
+  const timestamp = latestSnapshot && typeof latestSnapshot === 'object' ? latestSnapshot.timestamp : '';
+  const parsed = Date.parse(String(timestamp || ''));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function snapshotAttentionState(latestSnapshot, now = Date.now()) {
+  if (!latestSnapshot || typeof latestSnapshot !== 'object') return 'empty';
+  if (String(latestSnapshot.reason || '').toLowerCase() === 'unload') return 'unloaded';
+  const timestampMs = snapshotTimestampMs(latestSnapshot);
+  if (timestampMs > 0 && now - timestampMs > PET_SNAPSHOT_ATTENTION_TTL_MS) return 'stale';
+  return 'fresh';
+}
+
+function latestAttention(latestSnapshot, now = Date.now()) {
+  if (snapshotAttentionState(latestSnapshot, now) !== 'fresh') return [];
   const companion = latestSnapshot && typeof latestSnapshot === 'object' ? latestSnapshot.companion : null;
   const attention = companion && Array.isArray(companion.attention) ? companion.attention : [];
   return attention.map((item) => ({
@@ -685,10 +701,11 @@ export function createServer(options = {}) {
       }
 
       if (req.method === 'GET' && url.pathname === '/api/pet/attention') {
+        const attentionState = snapshotAttentionState(latestSnapshot);
         sendJson(res, 200, {
           ok: true,
           sessions: latestAttention(latestSnapshot),
-          source: latestSnapshot ? 'webui-extension-snapshot' : 'empty',
+          source: attentionState === 'fresh' ? 'webui-extension-snapshot' : attentionState,
           server_time: Date.now() / 1000
         }, headers);
         return;

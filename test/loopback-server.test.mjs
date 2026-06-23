@@ -103,6 +103,66 @@ test('pet attention is derived from latest WebUI snapshot', async () => {
   assert.equal(body.sessions[0].status, 'running');
 });
 
+test('pet attention ignores unload snapshots', async () => {
+  const snapshot = {
+    source: 'hermes-webui',
+    reason: 'unload',
+    timestamp: new Date().toISOString(),
+    companion: {
+      attention: [
+        {
+          session_id: 's1',
+          status: 'running',
+          title: 'Old task',
+          text: 'Still working'
+        }
+      ]
+    }
+  };
+
+  await fetch(`${baseUrl}/api/webui/snapshot`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(snapshot)
+  });
+
+  const response = await fetch(`${baseUrl}/api/pet/attention`);
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.source, 'unloaded');
+  assert.deepEqual(body.sessions, []);
+});
+
+test('pet attention expires stale WebUI snapshots', async () => {
+  const snapshot = {
+    source: 'hermes-webui',
+    reason: 'poll',
+    timestamp: new Date(Date.now() - 60_000).toISOString(),
+    companion: {
+      attention: [
+        {
+          session_id: 's1',
+          status: 'running',
+          title: 'Old task',
+          text: 'Still working'
+        }
+      ]
+    }
+  };
+
+  await fetch(`${baseUrl}/api/webui/snapshot`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(snapshot)
+  });
+
+  const response = await fetch(`${baseUrl}/api/pet/attention`);
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.source, 'stale');
+  assert.deepEqual(body.sessions, []);
+});
+
 test('pet open_session queues browser navigation command', async () => {
   const server = createServer({ preferencePath: null, focusExistingBrowserTab: false, openExternal: () => true });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
