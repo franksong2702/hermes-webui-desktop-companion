@@ -135,9 +135,15 @@ binds to `127.0.0.1` by default and only accepts loopback WebUI origins by
 default. Do not expose it on a public interface.
 
 The sidecar serves local pet assets and stores only the latest in-memory WebUI
-snapshot received from the adapter. It does not persist session data, read
-Hermes credentials, or require filesystem access outside this repository in the
-current scaffold.
+snapshot received from the adapter. It persists only local pet preferences under
+the current user's home directory. It does not persist session data, read Hermes
+credentials, or require filesystem access outside this repository in the current
+scaffold.
+
+Direct quick-reply sending and inline approval/clarify responses are default-off
+local permissions. The first attempt from the desktop pet shows a confirmation
+card; users can also toggle both permissions from the pet right-click menu under
+`Permission control`.
 
 ## Compatibility
 

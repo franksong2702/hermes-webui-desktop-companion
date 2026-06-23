@@ -86,6 +86,11 @@ body{position:relative;outline:0;box-shadow:none;}
 .expand-actions{display:flex;gap:8px;margin-top:8px;}
 .expand-actions button{flex:1;height:30px;border:none;border-radius:999px;font-size:13px;font-weight:800;cursor:pointer;transition:filter .15s;}
 .expand-actions button:hover{filter:brightness(1.08);}
+.permission-actions{display:flex;gap:8px;margin-top:9px;}
+.permission-actions button{flex:1;min-height:30px;border:none;border-radius:999px;padding:4px 10px;font-size:12px;font-weight:800;line-height:1.15;cursor:pointer;overflow-wrap:anywhere;}
+.permission-safe{background:#eef0f7;color:var(--pet-text);}
+.permission-allow{background:#8b5cf6;color:#fff;}
+.permission-actions button:hover{filter:brightness(1.06);}
 .btn-approve{background:var(--pet-green);color:#fff;}
 .btn-deny{background:#e8eaf0;color:var(--pet-text);}
 .expand-question{font-size:13px;font-weight:600;color:var(--pet-muted,#8b8fa3);margin-bottom:6px;line-height:1.3;}

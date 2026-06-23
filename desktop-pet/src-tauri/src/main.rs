@@ -1,4 +1,4 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::process;
 use std::process::Command;
 use std::sync::{atomic::AtomicBool, atomic::Ordering, Arc, Mutex};
@@ -14,7 +14,9 @@ const PET_CONTEXT_MENU_EVENT: &str = "pet-context-menu";
 const PET_SKIN_CHANGE_EVENT: &str = "pet-skin-change";
 const PET_RESTART_REQUESTED_EVENT: &str = "pet-restart-requested";
 const PET_RAISE_REQUESTED_EVENT: &str = "pet-raise-requested";
+const PET_PERMISSION_TOGGLE_EVENT: &str = "pet-permission-toggle";
 const SKIN_MENU_PREFIX: &str = "skin:";
+const PERMISSION_MENU_PREFIX: &str = "permission:";
 
 fn _persist_desktop_pet_preference(app: &tauri::AppHandle, enabled: bool) {
     let enabled_text = if enabled { "true" } else { "false" };
@@ -224,6 +226,7 @@ fn parse_attention_visibility(payload: &str) -> bool {
 struct PetContextMenuPayload {
     skins: Vec<PetSkin>,
     active_skin_id: Option<String>,
+    permissions: Option<PetPermissionsPayload>,
     menu_labels: Option<PetContextMenuLabels>,
 }
 
@@ -231,8 +234,25 @@ struct PetContextMenuPayload {
 #[serde(rename_all = "camelCase")]
 struct PetContextMenuLabels {
     switch_skin: Option<String>,
+    permissions_control: Option<String>,
+    allow_direct_send: Option<String>,
+    allow_inline_action_responses: Option<String>,
     restart_pet: Option<String>,
     close_pet: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "snake_case")]
+struct PetPermissionsPayload {
+    allow_direct_send: Option<bool>,
+    allow_inline_action_responses: Option<bool>,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PetPermissionTogglePayload {
+    key: String,
+    enabled: bool,
 }
 
 #[derive(Deserialize)]
@@ -317,6 +337,7 @@ fn pet_context_menu_payload(payload: &str) -> PetContextMenuPayload {
     serde_json::from_str(payload).unwrap_or_else(|_| PetContextMenuPayload {
         skins: fallback_skins(),
         active_skin_id: Some("keeper".into()),
+        permissions: None,
         menu_labels: None,
     })
 }
@@ -465,6 +486,18 @@ fn main() {
                         labels.and_then(|item| item.switch_skin.as_ref()),
                         "Switch skin",
                     );
+                    let permissions_control_label = menu_label(
+                        labels.and_then(|item| item.permissions_control.as_ref()),
+                        "Permission control",
+                    );
+                    let allow_direct_send_label = menu_label(
+                        labels.and_then(|item| item.allow_direct_send.as_ref()),
+                        "Direct send",
+                    );
+                    let allow_inline_action_responses_label = menu_label(
+                        labels.and_then(|item| item.allow_inline_action_responses.as_ref()),
+                        "Approval / clarify responses",
+                    );
                     let restart_pet_label = menu_label(
                         labels.and_then(|item| item.restart_pet.as_ref()),
                         "Restart pet",
@@ -496,8 +529,50 @@ fn main() {
                     let Ok(skin_menu) = skin_builder.build() else {
                         return;
                     };
+                    let allow_direct_send = payload
+                        .permissions
+                        .as_ref()
+                        .and_then(|item| item.allow_direct_send)
+                        .unwrap_or(false);
+                    let allow_inline_action_responses = payload
+                        .permissions
+                        .as_ref()
+                        .and_then(|item| item.allow_inline_action_responses)
+                        .unwrap_or(false);
+                    let direct_send_label = if allow_direct_send {
+                        format!("{} ✓", allow_direct_send_label)
+                    } else {
+                        allow_direct_send_label
+                    };
+                    let inline_action_label = if allow_inline_action_responses {
+                        format!("{} ✓", allow_inline_action_responses_label)
+                    } else {
+                        allow_inline_action_responses_label
+                    };
+                    let Ok(permission_menu) = SubmenuBuilder::new(
+                        &menu_handle,
+                        permissions_control_label,
+                    )
+                    .text(
+                        format!(
+                            "{PERMISSION_MENU_PREFIX}allow_direct_send:{}",
+                            !allow_direct_send
+                        ),
+                        direct_send_label,
+                    )
+                    .text(
+                        format!(
+                            "{PERMISSION_MENU_PREFIX}allow_inline_action_responses:{}",
+                            !allow_inline_action_responses
+                        ),
+                        inline_action_label,
+                    )
+                    .build() else {
+                        return;
+                    };
                     let Ok(menu) = MenuBuilder::new(&menu_handle)
                         .item(&skin_menu)
+                        .item(&permission_menu)
                         .separator()
                         .text(RESTART_PET_MENU_ID, restart_pet_label)
                         .text(CLOSE_PET_MENU_ID, close_pet_label)
@@ -521,6 +596,27 @@ fn main() {
                 let _ = app.emit_to("pet", PET_SKIN_CHANGE_EVENT, skin_id.clone());
                 let _ = app.emit_to("pet_bubbles", PET_SKIN_CHANGE_EVENT, skin_id);
                 restore_pet_window_layers(&app.clone());
+                return;
+            }
+            if let Some(raw) = id.strip_prefix(PERMISSION_MENU_PREFIX) {
+                let mut parts = raw.split(':');
+                let Some(key) = parts.next() else {
+                    return;
+                };
+                let Some(enabled_text) = parts.next() else {
+                    return;
+                };
+                if !matches!(key, "allow_direct_send" | "allow_inline_action_responses") {
+                    return;
+                }
+                let enabled = enabled_text == "true";
+                let payload = PetPermissionTogglePayload {
+                    key: key.to_string(),
+                    enabled,
+                };
+                restore_pet_window_layers(&app.clone());
+                let _ = app.emit_to("pet", PET_PERMISSION_TOGGLE_EVENT, payload.clone());
+                let _ = app.emit_to("pet_bubbles", PET_PERMISSION_TOGGLE_EVENT, payload);
                 return;
             }
             match id {

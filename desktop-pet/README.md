@@ -47,7 +47,8 @@ Window intent:
 - skipped from the taskbar / dock where supported
 - pet-sized transparent viewport whose runtime size follows the active skin layout
 - separate bubble window with dynamic height and top/bottom placement around the pet window
-- right-click menu for switching detected skins, restarting the pet, or closing it
+- right-click menu for switching detected skins, toggling `Permission control`,
+  restarting the pet, or closing it
 
 The bubble window is not only for session cards. It can render work attention
 bubbles, the first-launch Welcome Card, and short ready/status toasts. Session
@@ -95,7 +96,13 @@ The shell is backed by loopback sidecar endpoints:
   the command.
 - `/api/pet/register` records that a native shell reached the sidecar.
 - `/api/pet/preference` keeps the current close/enable preference local to the
-  sidecar-backed pet flow.
+  sidecar-backed pet flow. It also stores default-off permissions for direct
+  quick-reply sending and inline approval/clarify responses.
+
+Direct sending and inline approval/clarify responses require explicit user
+opt-in. The first attempt from a bubble card shows a confirmation card, and the
+same permissions can be toggled from the pet right-click menu under
+`Permission control`.
 
 This is a desktop-only beta for macOS and Windows. macOS has been locally
 verified; Windows is source-compatible but should be treated as beta until

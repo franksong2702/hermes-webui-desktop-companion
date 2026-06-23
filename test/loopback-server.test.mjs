@@ -19,7 +19,7 @@ async function waitForCommand(base, path, predicate = () => true, timeoutMs = 12
 }
 
 before(async () => {
-  server = createServer({ allowedOrigins: 'http://127.0.0.1:8787' });
+  server = createServer({ allowedOrigins: 'http://127.0.0.1:8787', preferencePath: null });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const address = server.address();
   baseUrl = `http://${address.address}:${address.port}`;
@@ -104,7 +104,7 @@ test('pet attention is derived from latest WebUI snapshot', async () => {
 });
 
 test('pet open_session queues browser navigation command', async () => {
-  const server = createServer({ focusExistingBrowserTab: false, openExternal: () => true });
+  const server = createServer({ preferencePath: null, focusExistingBrowserTab: false, openExternal: () => true });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const address = server.address();
   const base = `http://${address.address}:${address.port}`;
@@ -150,7 +150,12 @@ test('pet open_session queues browser navigation command', async () => {
 });
 
 test('pet commands accept short Hermes session ids', async () => {
-  const server = createServer({ focusExistingBrowserTab: false, openExternal: () => true });
+  const server = createServer({
+    preferencePath: null,
+    initialPreferences: { allow_inline_action_responses: true },
+    focusExistingBrowserTab: false,
+    openExternal: () => true
+  });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const address = server.address();
   const base = `http://${address.address}:${address.port}`;
@@ -199,6 +204,7 @@ test('pet commands accept short Hermes session ids', async () => {
 test('pet open_session focuses an existing WebUI browser tab', async () => {
   const focusCalls = [];
   const server = createServer({
+    preferencePath: null,
     focusExistingBrowserTab: (url, origin) => {
       focusCalls.push({ url, origin });
       return { focused: true, reused: true };
@@ -245,6 +251,8 @@ test('pet open_session focuses an existing WebUI browser tab', async () => {
 
 test('pet open_session waits for bridge ack when sending a quick reply draft', async () => {
   const server = createServer({
+    preferencePath: null,
+    initialPreferences: { allow_direct_send: true },
     focusExistingBrowserTab: () => ({ focused: true, reused: true }),
     openExternal: () => {
       throw new Error('openExternal should not run when an existing tab is reused');
@@ -293,8 +301,90 @@ test('pet open_session waits for bridge ack when sending a quick reply draft', a
   }
 });
 
+test('pet open_session downgrades autosend when direct send is disabled', async () => {
+  const server = createServer({
+    preferencePath: null,
+    focusExistingBrowserTab: () => ({ focused: true, reused: true }),
+    openExternal: () => {
+      throw new Error('openExternal should not run when an existing tab is reused');
+    }
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const address = server.address();
+  const base = `http://${address.address}:${address.port}`;
+  try {
+    await fetch(`${base}/api/webui/snapshot`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        source: 'hermes-webui',
+        page: { href: 'http://127.0.0.1:8787/session/current' }
+      })
+    });
+
+    const openPromise = fetch(`${base}/api/pet/open_session`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ session_id: 'abc123', draft: 'hello from pet', autosend: true })
+    });
+
+    const command = await waitForCommand(base, '/api/pet/navigation', (item) => item.session_id === 'abc123');
+    assert.equal(command.draft, 'hello from pet');
+    assert.equal(command.autosend_requested, true);
+    assert.equal(command.autosend, false);
+    assert.equal(command.autosend_blocked, true);
+
+    await fetch(`${base}/api/pet/navigation_ack`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id: command.id })
+    });
+
+    const open = await openPromise;
+    const opened = await open.json();
+    assert.equal(open.status, 200);
+    assert.equal(opened.command.autosend, false);
+    assert.equal(opened.command.autosend_blocked, true);
+  } finally {
+    await new Promise((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
+});
+
+test('pet approval and clarify responses are disabled until the user opts in', async () => {
+  const server = createServer({ preferencePath: null });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const address = server.address();
+  const base = `http://${address.address}:${address.port}`;
+  try {
+    const approval = await fetch(`${base}/api/approval/respond`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ session_id: 'abc123', choice: 'once', approval_id: 'approval-1' })
+    });
+    assert.equal(approval.status, 403);
+    assert.equal((await approval.json()).error, 'inline_action_responses_disabled');
+
+    const clarify = await fetch(`${base}/api/clarify/respond`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ session_id: 'abc123', response: 'Use option A', clarify_id: 'clarify-1' })
+    });
+    assert.equal(clarify.status, 403);
+    assert.equal((await clarify.json()).error, 'inline_action_responses_disabled');
+  } finally {
+    await new Promise((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
+});
+
 test('pet approval actions are executed by the WebUI action bridge', async () => {
-  const server = createServer();
+  const server = createServer({
+    preferencePath: null,
+    initialPreferences: { allow_inline_action_responses: true }
+  });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const address = server.address();
   const base = `http://${address.address}:${address.port}`;
@@ -346,16 +436,26 @@ test('pet register and preference routes are owned by the sidecar', async () => 
   const preferencePost = await fetch(`${baseUrl}/api/pet/preference`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ enabled: false })
+    body: JSON.stringify({
+      enabled: false,
+      allow_direct_send: true,
+      allow_inline_action_responses: true
+    })
   });
   const preferencePostBody = await preferencePost.json();
   assert.equal(preferencePost.status, 200);
   assert.equal(preferencePostBody.ok, true);
+  assert.equal(preferencePostBody.enabled, false);
+  assert.equal(preferencePostBody.allow_direct_send, true);
+  assert.equal(preferencePostBody.allow_inline_action_responses, true);
 
   const preferenceGet = await fetch(`${baseUrl}/api/pet/preference`);
   const preferenceGetBody = await preferenceGet.json();
   assert.equal(preferenceGet.status, 200);
   assert.equal(preferenceGetBody.ok, true);
+  assert.equal(preferenceGetBody.enabled, false);
+  assert.equal(preferenceGetBody.allow_direct_send, true);
+  assert.equal(preferenceGetBody.allow_inline_action_responses, true);
 });
 
 test('desktop pet pages and assets are served by loopback', async () => {
@@ -383,7 +483,7 @@ test('desktop pet devUrl supports HEAD probes', async () => {
 });
 
 test('default CORS allows loopback WebUI ports', async () => {
-  const localServer = createServer();
+  const localServer = createServer({ preferencePath: null });
   await new Promise((resolve) => localServer.listen(0, '127.0.0.1', resolve));
   const address = localServer.address();
   const url = `http://${address.address}:${address.port}`;

@@ -1,6 +1,8 @@
 import http from 'node:http';
 import { spawn } from 'node:child_process';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { readFile, stat } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -17,6 +19,11 @@ const PET_BRIDGE_POLL_FRESH_MS = 4_000;
 const PET_ACTION_TTL_MS = 60_000;
 const PET_ACTION_MAX_COMMANDS = 50;
 const PET_ACTION_WAIT_MS = 7_000;
+const DEFAULT_PREFERENCES = Object.freeze({
+  enabled: true,
+  allow_direct_send: false,
+  allow_inline_action_responses: false
+});
 
 function parseAllowedOrigins(value) {
   if (!value) return null;
@@ -84,6 +91,36 @@ function sendHead(res, status, contentType, contentLength = 0, headers = {}) {
     ...headers
   });
   res.end();
+}
+
+function defaultPreferencePath() {
+  return path.join(os.homedir(), '.hermes-webui-desktop-companion', 'preferences.json');
+}
+
+function normalizePreferences(value) {
+  const source = value && typeof value === 'object' ? value : {};
+  return {
+    enabled: typeof source.enabled === 'boolean' ? source.enabled : DEFAULT_PREFERENCES.enabled,
+    allow_direct_send: typeof source.allow_direct_send === 'boolean' ? source.allow_direct_send : DEFAULT_PREFERENCES.allow_direct_send,
+    allow_inline_action_responses: typeof source.allow_inline_action_responses === 'boolean'
+      ? source.allow_inline_action_responses
+      : DEFAULT_PREFERENCES.allow_inline_action_responses
+  };
+}
+
+function loadPreferences(preferencePath) {
+  if (!preferencePath) return normalizePreferences();
+  try {
+    return normalizePreferences(JSON.parse(readFileSync(preferencePath, 'utf8')));
+  } catch (_) {
+    return normalizePreferences();
+  }
+}
+
+function savePreferences(preferencePath, preferences) {
+  if (!preferencePath) return;
+  mkdirSync(path.dirname(preferencePath), { recursive: true });
+  writeFileSync(preferencePath, `${JSON.stringify(normalizePreferences(preferences), null, 2)}\n`, 'utf8');
 }
 
 async function readJson(req) {
@@ -380,10 +417,28 @@ async function petSkins() {
 
 export function createServer(options = {}) {
   const allowedOrigins = parseAllowedOrigins(options.allowedOrigins || process.env.HERMES_COMPANION_ALLOWED_ORIGINS);
+  const preferencePath = Object.prototype.hasOwnProperty.call(options, 'preferencePath')
+    ? options.preferencePath
+    : (process.env.HERMES_COMPANION_PREFERENCES_PATH || defaultPreferencePath());
+  let preferences = normalizePreferences(options.initialPreferences || loadPreferences(preferencePath));
   let latestSnapshot = null;
   let navigationCommands = [];
   let navigationLastPollAt = 0;
   let actionCommands = [];
+
+  function preferenceResponse() {
+    return { ok: true, ...preferences, server_time: Date.now() / 1000 };
+  }
+
+  function updatePreferences(body) {
+    const next = { ...preferences };
+    for (const key of ['enabled', 'allow_direct_send', 'allow_inline_action_responses']) {
+      if (body && typeof body[key] === 'boolean') next[key] = body[key];
+    }
+    preferences = normalizePreferences(next);
+    savePreferences(preferencePath, preferences);
+    return preferenceResponse();
+  }
 
   function trimNavigationCommands(now = Date.now()) {
     const cutoff = now - PET_NAVIGATION_TTL_MS;
@@ -484,11 +539,15 @@ export function createServer(options = {}) {
     if (!origin) throw Object.assign(new Error('webui_snapshot_unavailable'), { statusCode: 409 });
     const targetUrl = `${origin}/session/${encodeURIComponent(sessionId)}`;
     const now = Date.now();
+    const requestedAutosend = Boolean(body && body.autosend);
+    const autosendAllowed = Boolean(preferences.allow_direct_send);
     const command = {
       id: `${now.toString(36)}-${Math.random().toString(36).slice(2, 10)}`,
       session_id: sessionId,
       draft: String(body && body.draft || ''),
-      autosend: Boolean(body && body.autosend),
+      autosend: requestedAutosend && autosendAllowed,
+      autosend_requested: requestedAutosend,
+      autosend_blocked: requestedAutosend && !autosendAllowed,
       url: targetUrl,
       created_at: now / 1000,
       created_at_ms: now
@@ -504,6 +563,9 @@ export function createServer(options = {}) {
     if (!sessionId) throw Object.assign(new Error('session_id is required'), { statusCode: 400 });
     if (!['approval.respond', 'clarify.respond'].includes(actionType)) {
       throw Object.assign(new Error('unsupported pet action'), { statusCode: 400 });
+    }
+    if (!preferences.allow_inline_action_responses) {
+      throw Object.assign(new Error('inline_action_responses_disabled'), { statusCode: 403 });
     }
     const now = Date.now();
     const command = {
@@ -682,13 +744,12 @@ export function createServer(options = {}) {
       }
 
       if (req.method === 'GET' && url.pathname === '/api/pet/preference') {
-        sendJson(res, 200, { ok: true, enabled: true, server_time: Date.now() / 1000 }, headers);
+        sendJson(res, 200, preferenceResponse(), headers);
         return;
       }
 
       if (req.method === 'POST' && url.pathname === '/api/pet/preference') {
-        await readJson(req);
-        sendJson(res, 200, { ok: true, server_time: Date.now() / 1000 }, headers);
+        sendJson(res, 200, updatePreferences(await readJson(req)), headers);
         return;
       }
 
