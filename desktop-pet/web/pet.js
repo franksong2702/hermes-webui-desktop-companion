@@ -7,6 +7,7 @@
   const SKIN_KEY='hermes-pet-skin';
   const RESTART_POSITION_KEY='hermes-pet-restart-position';
   const PET_NATIVE_RESTART_REQUESTED_EVENT='pet-native-restart-requested';
+  const PET_PERMISSION_TOGGLE_EVENT='pet-permission-toggle';
   const POLL_MS=1000;
   const FRAME_MS=520;
   const PET_DISPLAY_SCALE=2/3;
@@ -27,12 +28,16 @@
   let state='idle', frame=0, sessions=[], dismissed=_readJson(DISMISSED_KEY,{});
   let petSkins=[{id:'keeper',displayName:'May',spritesheetUrl:'/extensions/pets/keeper/spritesheet.webp',layout:DEFAULT_PET_LAYOUT}];
   let activeSkinId=localStorage.getItem(SKIN_KEY)||'keeper';
+  let petPreferences={enabled:true,allow_direct_send:false,allow_inline_action_responses:false};
   let _isDragging=false;
   let _dragPrevX=null;
 
   const I18N_FALLBACKS={
     desktop_pet_close:'Close pet',
     desktop_pet_collapse_updates:'Collapse updates',
+    desktop_pet_permission_allow_direct_send:'Direct send',
+    desktop_pet_permission_allow_inline_actions:'Approval / clarify responses',
+    desktop_pet_permissions_control:'Permission control',
     desktop_pet_expand_updates:'Expand updates',
     desktop_pet_restart:'Restart pet',
     desktop_pet_shell_label:'{0} desktop pet',
@@ -44,6 +49,7 @@
   function _readJson(key,fallback){try{const parsed=JSON.parse(localStorage.getItem(key)||'null');return parsed&&typeof parsed==='object'?parsed:fallback;}catch(_){return fallback;}}
   function _writeJson(key,value){try{localStorage.setItem(key,JSON.stringify(value));}catch(_){}}
   function _clean(value){return String(value||'').replace(/\s+/g,' ').trim();}
+  function _normalizePreferences(value){const source=value&&typeof value==='object'?value:{};return {enabled:typeof source.enabled==='boolean'?source.enabled:true,allow_direct_send:typeof source.allow_direct_send==='boolean'?source.allow_direct_send:false,allow_inline_action_responses:typeof source.allow_inline_action_responses==='boolean'?source.allow_inline_action_responses:false};}
   function _csrfHeaders(){
     const token=window.__HERMES_CONFIG__&&window.__HERMES_CONFIG__.csrfToken;
     return token?{'X-Hermes-CSRF-Token':token}:{};
@@ -57,7 +63,19 @@
       return res.ok;
     }catch(_){return false;}
   }
-  function _menuLabels(){return {switchSkin:_petT('desktop_pet_switch_skin'),restartPet:_petT('desktop_pet_restart'),closePet:_petT('desktop_pet_close')};}
+  async function _loadPreferences(){
+    try{
+      const data=await fetch('/api/pet/preference',{cache:'no-store'}).then(res=>{if(!res.ok) throw new Error(`Pet preferences failed: ${res.status}`);return res.json();});
+      petPreferences=_normalizePreferences(data);
+    }catch(err){console.warn('Failed to load pet preferences',err);}
+    return petPreferences;
+  }
+  async function _setPreferences(patch){
+    const data=await fetch('/api/pet/preference',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json',..._csrfHeaders()},body:JSON.stringify(patch||{})}).then(res=>{if(!res.ok) throw new Error(`Pet preference update failed: ${res.status}`);return res.json();});
+    petPreferences=_normalizePreferences(data);
+    return petPreferences;
+  }
+  function _menuLabels(){return {switchSkin:_petT('desktop_pet_switch_skin'),restartPet:_petT('desktop_pet_restart'),closePet:_petT('desktop_pet_close'),permissionsControl:_petT('desktop_pet_permissions_control'),allowDirectSend:_petT('desktop_pet_permission_allow_direct_send'),allowInlineActionResponses:_petT('desktop_pet_permission_allow_inline_actions')};}
   function _localizeStaticLabels(){
     if(typeof applyLocaleToDOM==='function') applyLocaleToDOM();
     document.title=_petT('desktop_pet_title');
@@ -443,7 +461,8 @@
     if(!tauri||!tauri.event||typeof tauri.event.emit!=='function') return;
     try{
       await _loadPetSkins();
-      await tauri.event.emit('pet-context-menu',{skins:petSkins,activeSkinId:(_activeSkin()||{}).id||'keeper',menuLabels:_menuLabels()});
+      await _loadPreferences();
+      await tauri.event.emit('pet-context-menu',{skins:petSkins,activeSkinId:(_activeSkin()||{}).id||'keeper',permissions:petPreferences,menuLabels:_menuLabels()});
     }catch(err){console.warn('Failed to open pet context menu',err);}
   }
   badge.addEventListener('click',_onBadgeActivate);
@@ -455,6 +474,18 @@
     const sync=()=>_schedulePetLayoutFrame();
     try{if(typeof win.onMoved==='function') await win.onMoved(sync);}catch(err){console.warn('Failed to listen for pet window moves',err);}
     try{if(typeof win.onResized==='function') await win.onResized(sync);}catch(err){console.warn('Failed to listen for pet window resizes',err);}
+  }
+  async function _listenPetPermissionMenu(){
+    const tauri=window.__TAURI__;
+    if(!tauri||!tauri.event||typeof tauri.event.listen!=='function') return;
+    try{
+      await tauri.event.listen(PET_PERMISSION_TOGGLE_EVENT,event=>{
+        const payload=event&&event.payload||{};
+        const key=String(payload.key||'');
+        if(!['allow_direct_send','allow_inline_action_responses'].includes(key)) return;
+        _setPreferences({[key]:Boolean(payload.enabled)}).catch(err=>console.warn('Failed to toggle pet permission',err));
+      });
+    }catch(err){console.warn('Failed to listen for pet permission menu',err);}
   }
   document.addEventListener('contextmenu',_openPetContextMenu);
   stage.addEventListener('mousedown',_startTauriWindowDrag,{capture:true});
@@ -477,6 +508,7 @@
     _listenPetSkinChanges();
     _listenPetRestartRequests();
     _listenPetWindowGeometry();
+    _listenPetPermissionMenu();
     _emitPetLayout();
   }
   _bootPet();

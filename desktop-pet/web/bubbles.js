@@ -19,6 +19,8 @@
   const BUBBLE_MAX_VISIBLE_CARDS=2.7;
   const BUBBLE_MIN_HEIGHT=76;
   const PET_RAISE_REQUESTED_EVENT='pet-raise-requested';
+  const PET_PERMISSION_TOGGLE_EVENT='pet-permission-toggle';
+  const DEFAULT_PREFERENCES={enabled:true,allow_direct_send:false,allow_inline_action_responses:false};
   const DEFAULT_PET_LAYOUT={columns:8,rows:9,frameWidth:192,frameHeight:208,states:[{name:'idle',row:0,frames:6},{name:'running-right',row:1,frames:8},{name:'running-left',row:2,frames:8},{name:'waving',row:3,frames:4},{name:'jumping',row:4,frames:5},{name:'failed',row:5,frames:8},{name:'waiting',row:6,frames:6},{name:'running',row:7,frames:6},{name:'review',row:8,frames:6}]};
   const bubbles=document.getElementById('petBubbles');
   const install=document.getElementById('petInstall');
@@ -40,7 +42,8 @@
   let bubbleWindowCache={mode:'',logicalWidth:0,logicalHeight:0,x:0,y:0};
   let pendingBubblePosition=null;
   let bubblePositionInFlight=false;
-  let pendingActionResponses={}, clarifyDrafts={}, clarifyOtherKey='';
+  let pendingActionResponses={}, clarifyDrafts={}, clarifyOtherKey='', pendingPermissionPrompt=null;
+  let petPreferences={...DEFAULT_PREFERENCES};
   let expandedActionKey='';
   let expandCollapseTimer=0;
   let lastRenderedSignature='';
@@ -65,6 +68,13 @@
     desktop_pet_latest:'Latest',
     desktop_pet_more_sessions_below:'{0} more sessions below',
     desktop_pet_pick_one:'Pick one',
+    desktop_pet_permission_allow:'Allow',
+    desktop_pet_permission_direct_send_body:'Required before Desktop Companion can send replies without another WebUI click.',
+    desktop_pet_permission_direct_send_safe:'Send as draft',
+    desktop_pet_permission_direct_send_title:'Allow direct send',
+    desktop_pet_permission_inline_action_body:'Required before Desktop Companion can answer approval or clarify prompts.',
+    desktop_pet_permission_inline_action_safe:'Open WebUI',
+    desktop_pet_permission_inline_action_title:'Allow responses',
     desktop_pet_ready:'Ready',
     desktop_pet_ready_meta_completed:'Completed',
     desktop_pet_ready_meta_messages:'{0} messages',
@@ -90,6 +100,7 @@
   function _writeJson(key,value){try{localStorage.setItem(key,JSON.stringify(value));}catch(_){}}
   function _esc(value){return String(value||'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
   function _clean(value){return String(value||'').replace(/\s+/g,' ').trim();}
+  function _normalizePreferences(value){const source=value&&typeof value==='object'?value:{};return {enabled:typeof source.enabled==='boolean'?source.enabled:DEFAULT_PREFERENCES.enabled,allow_direct_send:typeof source.allow_direct_send==='boolean'?source.allow_direct_send:DEFAULT_PREFERENCES.allow_direct_send,allow_inline_action_responses:typeof source.allow_inline_action_responses==='boolean'?source.allow_inline_action_responses:DEFAULT_PREFERENCES.allow_inline_action_responses};}
   function _localizeStaticLabels(){
     if(typeof applyLocaleToDOM==='function') applyLocaleToDOM();
     document.title=_petT('desktop_pet_title');
@@ -126,6 +137,18 @@
       _applyPetSkin(activeSkinId);
       return true;
     }catch(err){console.warn('Failed to load pet skins',err);_applyPetSkin(activeSkinId);return false;}
+  }
+  async function _loadPreferences(){
+    try{
+      const data=await fetch('/api/pet/preference',{cache:'no-store'}).then(res=>{if(!res.ok) throw new Error(`Pet preferences failed: ${res.status}`);return res.json();});
+      petPreferences=_normalizePreferences(data);
+      return true;
+    }catch(err){console.warn('Failed to load pet preferences',err);return false;}
+  }
+  async function _setPreferences(patch){
+    const data=await fetch('/api/pet/preference',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json',..._csrfHeaders()},body:JSON.stringify(patch||{})}).then(res=>{if(!res.ok) throw new Error(`Pet preference update failed: ${res.status}`);return res.json();});
+    petPreferences=_normalizePreferences(data);
+    return petPreferences;
   }
   async function _listenPetSkinChanges(){
     const tauri=window.__TAURI__;
@@ -333,14 +356,66 @@
     }
     if(clarifyOtherKey&&!active.has(clarifyOtherKey)) clarifyOtherKey='';
   }
-  function _submitClarifyResponse(sid,clarifyId,response,pendingKey,onError){
+  function _permissionPromptHtml(){
+    if(!pendingPermissionPrompt) return '';
+    const direct=pendingPermissionPrompt.kind==='direct_send';
+    const title=_esc(_petT(direct?'desktop_pet_permission_direct_send_title':'desktop_pet_permission_inline_action_title'));
+    const body=_esc(_petT(direct?'desktop_pet_permission_direct_send_body':'desktop_pet_permission_inline_action_body'));
+    const safeLabel=_esc(_petT(direct?'desktop_pet_permission_direct_send_safe':'desktop_pet_permission_inline_action_safe'));
+    const allowLabel=_esc(_petT('desktop_pet_permission_allow'));
+    return `<article class="pet-card pet-permission-card" role="listitem" tabindex="0" data-permission-kind="${_esc(pendingPermissionPrompt.kind)}"><div class="pet-card-main"><div><div class="pet-card-title">${title}</div><div class="pet-card-text">${body}</div></div></div><div class="permission-actions"><button class="permission-safe" type="button">${safeLabel}</button><button class="permission-allow" type="button">${allowLabel}</button></div></article>`;
+  }
+  function _permissionForAction(action){
+    if(!action||!action.type) return null;
+    return action.type==='direct_send'?'allow_direct_send':'allow_inline_action_responses';
+  }
+  async function _runPermissionAction(action,mode){
+    if(!action) return;
+    const key=_permissionForAction(action);
+    if(mode==='allow'&&key) await _setPreferences({[key]:true});
+    pendingPermissionPrompt=null;
+    if(action.type==='direct_send'){
+      await _sendReplyDraft(action.sid,action.text,mode==='allow');
+      return;
+    }
+    if(mode!=='allow'){
+      await _openSession(action.sid,'action_required');
+      return;
+    }
+    if(action.type==='approval') await _performApprovalResponse(action);
+    if(action.type==='clarify') _submitClarifyResponse(action.sid,action.clarifyId,action.response,action.pendingKey,action.onError,true);
+  }
+  function _submitClarifyResponse(sid,clarifyId,response,pendingKey,onError,bypassPermission){
     const text=_clean(response);
     if(!sid||!text){if(onError) onError();return;}
     const key=pendingKey||`clarify:${sid}:${clarifyId||''}`;
     if(pendingActionResponses[key]) return;
+    if(!bypassPermission&&!petPreferences.allow_inline_action_responses){
+      pendingPermissionPrompt={kind:'inline_action',action:{type:'clarify',sid,clarifyId,response:text,pendingKey:key,onError}};
+      render(true);
+      return;
+    }
     pendingActionResponses[key]=true;
     render(true);
     fetch('/api/clarify/respond',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json',..._csrfHeaders()},body:JSON.stringify({session_id:sid,response:text,clarify_id:clarifyId||'',..._actionBaselineForSid(sid)})}).then(res=>{if(!res.ok) throw new Error(`Clarify failed: ${res.status}`);return res.json();}).then(()=>{refresh();}).catch(()=>{delete pendingActionResponses[key];render(true);if(onError) setTimeout(onError,0);});
+  }
+  async function _performApprovalResponse(action){
+    const sid=action&&action.sid;
+    const choice=action&&action.choice;
+    const approvalId=action&&action.approvalId||'';
+    const pendingKey=action&&action.pendingKey||`approval:${sid}:${approvalId}`;
+    if(!sid||!choice||pendingActionResponses[pendingKey]) return;
+    pendingActionResponses[pendingKey]=true;
+    render(true);
+    try{
+      const res=await fetch('/api/approval/respond',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json',..._csrfHeaders()},body:JSON.stringify({session_id:sid,choice,approval_id:approvalId,..._actionBaselineForSid(sid)})});
+      if(!res.ok) throw new Error(`Approval failed: ${res.status}`);
+      await res.json();
+      refresh();
+    }catch(_){
+      delete pendingActionResponses[pendingKey];
+      render(true);
+    }
   }
   function _expandHtml(item){
     if(item.status!=='action_required') return '';
@@ -465,19 +540,21 @@
     // expanded action card, but ONLY when the attention state is unchanged. Any
     // status flip (e.g. clarify -> running after the user picks) changes the
     // signature and must always re-render so the card returns to running.
-    const signature=items.map(item=>`${item.session_id}~${item.status}~${item.dismissKey}`).join('|');
+    const permissionSignature=pendingPermissionPrompt?`permission:${pendingPermissionPrompt.kind}:${pendingPermissionPrompt.action&&pendingPermissionPrompt.action.sid||''}`:'';
+    const signature=`${permissionSignature}|${items.map(item=>`${item.session_id}~${item.status}~${item.dismissKey}`).join('|')}`;
     const focusedInput=bubbles.contains(document.activeElement)&&(document.activeElement.classList.contains('pet-reply-input')||document.activeElement.classList.contains('clarify-custom-input'));
     if(!force&&focusedInput&&signature===lastRenderedSignature) return;
     if(!force&&expandedActionKey&&signature===lastRenderedSignature&&typeof bubbles.matches==='function'&&bubbles.matches(':hover')) return;
     lastRenderedSignature=signature;
     const collapsed=localStorage.getItem(COLLAPSED_KEY)==='true' && localStorage.getItem(COLLAPSE_EXPLICIT_KEY)==='1';
-    if(count&&!collapsed) _hideStartupMessagesForAttention();
-    bubbles.hidden=!count||collapsed;
-    if(!count){bubbles.innerHTML='';_scheduleBubbleSync();return;}
+    const displayCount=count+(pendingPermissionPrompt?1:0);
+    if(displayCount&&!collapsed) _hideStartupMessagesForAttention();
+    bubbles.hidden=!displayCount||collapsed;
+    if(!displayCount){bubbles.innerHTML='';_scheduleBubbleSync();return;}
     bubbleContentHeightDirty=true;
     const visibleKeys=new Set(items.map(item=>item.dismissKey));
     if(expandedActionKey&&!visibleKeys.has(expandedActionKey)) expandedActionKey='';
-    bubbles.innerHTML=`<div class="pet-viewport" tabindex="0"><div class="pet-list" role="list">${items.map(item=>{const expand=_expandHtml(item);const isExpanded=expand&&item.dismissKey===expandedActionKey;return `<article class="pet-card${expand?' has-expand':''}" role="listitem" tabindex="0" data-sid="${_esc(item.session_id)}" data-status="${item.status}" data-dismiss-key="${_esc(item.dismissKey)}" data-action-type="${_esc(item.actionType||'')}" data-reply-open="${replySid===item.session_id?'1':'0'}"${expand?` data-expanded="${isExpanded?'1':'0'}"`:''}><button class="pet-dismiss" type="button" aria-label="${_esc(_petT('desktop_pet_dismiss_update'))}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="20" y1="4" x2="4" y2="20"/><line x1="4" y1="4" x2="20" y2="20"/></svg></button><div class="pet-card-main"><div><div class="pet-card-title" title="${_esc(item.title)}">${_titleHtml(item)}</div><div class="pet-card-text" title="${_esc(item.tooltip||item.text)}">${_esc(item.text)}</div></div><div class="pet-card-status">${_statusHtml(item)}</div></div>${expand}${item.status==='action_required'||replySid===item.session_id?'':`<button class="pet-reply-toggle" type="button">${_esc(_petT('desktop_pet_reply'))}</button>`}${_replyHtml(item)}${item.session_id===openingSid?'<div class="pet-card-opening" aria-hidden="true"><span class="pet-spinner"></span></div>':''}</article>`;}).join('')}</div></div><button class="pet-latest" type="button" hidden>${_esc(_petT('desktop_pet_latest'))}</button><button class="pet-more" type="button" hidden>+1</button>`;
+    bubbles.innerHTML=`<div class="pet-viewport" tabindex="0"><div class="pet-list" role="list">${_permissionPromptHtml()}${items.map(item=>{const expand=_expandHtml(item);const isExpanded=expand&&item.dismissKey===expandedActionKey;return `<article class="pet-card${expand?' has-expand':''}" role="listitem" tabindex="0" data-sid="${_esc(item.session_id)}" data-status="${item.status}" data-dismiss-key="${_esc(item.dismissKey)}" data-action-type="${_esc(item.actionType||'')}" data-reply-open="${replySid===item.session_id?'1':'0'}"${expand?` data-expanded="${isExpanded?'1':'0'}"`:''}><button class="pet-dismiss" type="button" aria-label="${_esc(_petT('desktop_pet_dismiss_update'))}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="20" y1="4" x2="4" y2="20"/><line x1="4" y1="4" x2="20" y2="20"/></svg></button><div class="pet-card-main"><div><div class="pet-card-title" title="${_esc(item.title)}">${_titleHtml(item)}</div><div class="pet-card-text" title="${_esc(item.tooltip||item.text)}">${_esc(item.text)}</div></div><div class="pet-card-status">${_statusHtml(item)}</div></div>${expand}${item.status==='action_required'||replySid===item.session_id?'':`<button class="pet-reply-toggle" type="button">${_esc(_petT('desktop_pet_reply'))}</button>`}${_replyHtml(item)}${item.session_id===openingSid?'<div class="pet-card-opening" aria-hidden="true"><span class="pet-spinner"></span></div>':''}</article>`;}).join('')}</div></div><button class="pet-latest" type="button" hidden>${_esc(_petT('desktop_pet_latest'))}</button><button class="pet-more" type="button" hidden>+1</button>`;
     requestAnimationFrame(_restoreViewport);
     _scheduleBubbleSync();
   }
@@ -555,7 +632,7 @@
     return _logicalPosition(pos.x/scale,pos.y/scale)||_physicalPosition(pos.x,pos.y);
   }
   function _bubbleMode(){
-    const count=_attentionItems().length;
+    const count=_attentionItems().length+(pendingPermissionPrompt?1:0);
     const collapsed=localStorage.getItem(COLLAPSED_KEY)==='true' && localStorage.getItem(COLLAPSE_EXPLICIT_KEY)==='1';
     if(count&&!collapsed) return 'bubbles';
     if(_isWelcomeVisible()) return 'welcome';
@@ -821,6 +898,15 @@
       return null;
     }
   }
+  async function _sendReplyDraft(sid,text,autosend){
+    await _openSessionInBrowser(sid,{draft:text,autosend});
+    _markViewed(sid);
+    replySid='';
+    replyText='';
+    replyPendingSid='';
+    replyError='';
+    render(true);
+  }
   async function _reply(card){
     const sid=card&&card.dataset.sid;
     const input=card&&card.querySelector('.pet-reply-input');
@@ -830,13 +916,13 @@
     replyError='';
     render(true);
     try{
-      await _openSessionInBrowser(sid,{draft:text,autosend:true});
-      _markViewed(sid);
-      replySid='';
-      replyText='';
-      replyPendingSid='';
-      replyError='';
-      render(true);
+      if(!petPreferences.allow_direct_send){
+        replyPendingSid='';
+        pendingPermissionPrompt={kind:'direct_send',action:{type:'direct_send',sid,text}};
+        render(true);
+        return;
+      }
+      await _sendReplyDraft(sid,text,true);
     }catch(err){
       console.warn('Failed to reply from pet',err);
       replyPendingSid='';
@@ -856,8 +942,21 @@
     const target=event.target;
     if(target.closest('.pet-latest')){event.preventDefault();event.stopPropagation();const scroller=bubbles.querySelector('.pet-viewport');if(scroller){scroller.scrollTop=0;bubbleScrollTop=0;_syncViewport();}return;}
     if(target.closest('.pet-more')){event.preventDefault();event.stopPropagation();const scroller=bubbles.querySelector('.pet-viewport');if(scroller){scroller.scrollTop=Math.min(scroller.scrollHeight,scroller.scrollTop+scroller.clientHeight*.85);bubbleScrollTop=scroller.scrollTop;_syncViewport();}return;}
+    if(target.closest('.permission-safe')){
+      event.preventDefault();
+      event.stopPropagation();
+      _runPermissionAction(pendingPermissionPrompt&&pendingPermissionPrompt.action,'safe').catch(err=>{console.warn('Permission safe action failed',err);pendingPermissionPrompt=null;render(true);});
+      return;
+    }
+    if(target.closest('.permission-allow')){
+      event.preventDefault();
+      event.stopPropagation();
+      _runPermissionAction(pendingPermissionPrompt&&pendingPermissionPrompt.action,'allow').catch(err=>{console.warn('Permission allow action failed',err);pendingPermissionPrompt=null;render(true);});
+      return;
+    }
     const card=target.closest('.pet-card');
     if(!card) return;
+    if(card.classList.contains('pet-permission-card')) return;
     if(target.closest('.pet-dismiss')){dismissed[card.dataset.dismissKey||`${card.dataset.sid}:${card.dataset.status}`]=true;_writeJson(DISMISSED_KEY,dismissed);render();return;}
     if(target.closest('.pet-reply-toggle')){replySid=replySid===card.dataset.sid?'':card.dataset.sid;replyText='';replyError='';render(true);setTimeout(()=>document.querySelector('.pet-reply-input')?.focus(),0);return;}
     const approveBtn=target.closest('.btn-approve');
@@ -866,9 +965,9 @@
       event.stopPropagation();
       const pendingKey=`approval:${approveBtn.dataset.sid}:${approveBtn.dataset.approvalId||card.dataset.dismissKey||''}`;
       if(pendingActionResponses[pendingKey]) return;
-      pendingActionResponses[pendingKey]=true;
-      render(true);
-      fetch('/api/approval/respond',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json',..._csrfHeaders()},body:JSON.stringify({session_id:approveBtn.dataset.sid,choice:'once',approval_id:approveBtn.dataset.approvalId||'',..._actionBaselineForSid(approveBtn.dataset.sid)})}).then(res=>{if(!res.ok) throw new Error(`Approval failed: ${res.status}`);return res.json();}).then(()=>{refresh();}).catch(()=>{delete pendingActionResponses[pendingKey];render(true);});
+      const action={type:'approval',sid:approveBtn.dataset.sid,choice:'once',approvalId:approveBtn.dataset.approvalId||'',pendingKey};
+      if(!petPreferences.allow_inline_action_responses){pendingPermissionPrompt={kind:'inline_action',action};render(true);return;}
+      _performApprovalResponse(action);
       return;
     }
     const denyBtn=target.closest('.btn-deny');
@@ -877,9 +976,9 @@
       event.stopPropagation();
       const pendingKey=`approval:${denyBtn.dataset.sid}:${denyBtn.dataset.approvalId||card.dataset.dismissKey||''}`;
       if(pendingActionResponses[pendingKey]) return;
-      pendingActionResponses[pendingKey]=true;
-      render(true);
-      fetch('/api/approval/respond',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json',..._csrfHeaders()},body:JSON.stringify({session_id:denyBtn.dataset.sid,choice:'deny',approval_id:denyBtn.dataset.approvalId||'',..._actionBaselineForSid(denyBtn.dataset.sid)})}).then(res=>{if(!res.ok) throw new Error(`Approval failed: ${res.status}`);return res.json();}).then(()=>{refresh();}).catch(()=>{delete pendingActionResponses[pendingKey];render(true);});
+      const action={type:'approval',sid:denyBtn.dataset.sid,choice:'deny',approvalId:denyBtn.dataset.approvalId||'',pendingKey};
+      if(!petPreferences.allow_inline_action_responses){pendingPermissionPrompt={kind:'inline_action',action};render(true);return;}
+      _performApprovalResponse(action);
       return;
     }
     const chip=target.closest('.choice-chip');
@@ -969,6 +1068,12 @@
     try{
       await tauri.event.listen('pet-layout-update',event=>{latestPetLayout=event.payload||latestPetLayout;_scheduleBubbleSync();});
       await tauri.event.listen('pet-attention-update',()=>{refresh().catch(()=>{});});
+      await tauri.event.listen(PET_PERMISSION_TOGGLE_EVENT,event=>{
+        const payload=event&&event.payload||{};
+        const key=String(payload.key||'');
+        if(!Object.prototype.hasOwnProperty.call(DEFAULT_PREFERENCES,key)) return;
+        _setPreferences({[key]:Boolean(payload.enabled)}).then(()=>render(true)).catch(err=>console.warn('Failed to toggle pet permission',err));
+      });
     }catch(err){console.warn('Failed to listen for pet layout events',err);}
   }
   setInterval(refresh,POLL_MS);
@@ -983,8 +1088,9 @@
     _localizeStaticLabels();
     await _listenPetWindowEvents();
     const skinStartup=_loadPetSkins();
+    const preferenceStartup=_loadPreferences();
     const attentionStartup=refresh();
-    _runFirstStartInstall([skinStartup,attentionStartup]);
+    _runFirstStartInstall([skinStartup,preferenceStartup,attentionStartup]);
     _listenPetSkinChanges();
   }
   _bootBubbles();

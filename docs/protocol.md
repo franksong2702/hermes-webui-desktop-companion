@@ -159,6 +159,11 @@ crashes before posting `action_ack`, the sidecar may time out and allow a retry.
 That rare crash window can duplicate an action, so action handlers should stay
 idempotent where WebUI supports it.
 
+Inline approval and clarify responses are gated by the sidecar preference
+`allow_inline_action_responses`, which defaults to `false`. When disabled, these
+routes return `403 inline_action_responses_disabled`; the desktop pet can then
+surface a user confirmation card or open the session in WebUI.
+
 ## `GET /api/pet/attention`
 
 Returns the current desktop-pet attention rows derived from the latest WebUI
@@ -202,6 +207,11 @@ When `draft` or `autosend` is present, the sidecar waits for the WebUI adapter t
 acknowledge the navigation command before reporting success, because the browser
 must apply the composer draft inside Hermes WebUI before the desktop reply can
 be considered handled.
+
+Direct autosend is gated by the sidecar preference `allow_direct_send`, which
+defaults to `false`. If a command requests `autosend` while that permission is
+off, the sidecar keeps the draft but downgrades `autosend` to `false` and marks
+the queued command with `autosend_blocked: true`.
 
 ```json
 {

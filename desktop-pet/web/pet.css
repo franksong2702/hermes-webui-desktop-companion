@@ -86,6 +86,15 @@ body{position:relative;outline:0;box-shadow:none;}
 .expand-actions{display:flex;gap:8px;margin-top:8px;}
 .expand-actions button{flex:1;height:30px;border:none;border-radius:999px;font-size:13px;font-weight:800;cursor:pointer;transition:filter .15s;}
 .expand-actions button:hover{filter:brightness(1.08);}
+.pet-permission-card{padding:11px 13px 12px;border-radius:22px;cursor:default;}
+.pet-permission-card .pet-card-main{display:block;}
+.pet-permission-card .pet-card-title{white-space:normal;font-size:15px;line-height:1.18;}
+.pet-permission-card .pet-card-text{display:block;max-height:none;margin-top:3px;overflow:visible;-webkit-line-clamp:unset;-webkit-box-orient:unset;font-size:12.5px;line-height:1.22;color:var(--pet-muted,#8b8fa3);}
+.permission-actions{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin-top:10px;}
+.permission-actions button{min-width:0;min-height:32px;border:none;border-radius:999px;padding:5px 10px;font-size:13px;font-weight:800;line-height:1.1;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.permission-safe{background:#eef0f7;color:var(--pet-text);box-shadow:0 1px 0 rgba(255,255,255,.7) inset;}
+.permission-allow{background:#8b5cf6;color:#fff;}
+.permission-actions button:hover{filter:brightness(1.06);}
 .btn-approve{background:var(--pet-green);color:#fff;}
 .btn-deny{background:#e8eaf0;color:var(--pet-text);}
 .expand-question{font-size:13px;font-weight:600;color:var(--pet-muted,#8b8fa3);margin-bottom:6px;line-height:1.3;}
