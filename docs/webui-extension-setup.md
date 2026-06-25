@@ -1,7 +1,16 @@
 # Hermes WebUI Extension Setup
 
-Hermes WebUI extensions are disabled by default. Start WebUI with this project's
-extension directory and manifest configured:
+Hermes WebUI extensions are disabled by default. For end-to-end Desktop Pet
+testing today, use manual extension mode: start WebUI with this project's
+extension directory and manifest configured.
+
+Hermes WebUI v0.51.644 added Settings -> Extensions Gallery install/uninstall,
+and Desktop Companion is published in the registry. That Gallery path currently
+downloads and tracks the extension files, but it needs the WebUI-side activation
+fix from nesquena/hermes-webui#4907 before the browser adapter is injected from
+the installed package. Until that fix is in the WebUI build you are testing, do
+not use the Gallery `Installed` badge as proof that the Desktop Companion
+adapter is running.
 
 ```bash
 cd /path/to/hermes-webui
@@ -49,6 +58,11 @@ For convenience, this repo also includes a wrapper:
 The current plugin-mode milestone does not render a pet inside the WebUI page.
 The extension hook only feeds the standalone Tauri desktop pet through the
 loopback protocol.
+
+After the core Gallery activation follow-up lands, the expected install shape is
+to install Desktop Companion from Settings -> Extensions -> Gallery, then still
+start the companion loopback and native pet from this repo. The Gallery entry is
+not a native-host installer or autostart mechanism.
 
 For older WebUI builds without `HERMES_WEBUI_EXTENSION_MANIFEST`, fall back to
 the explicit URL-list configuration:

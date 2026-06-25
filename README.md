@@ -59,6 +59,16 @@ package as Desktop Companion and the current visual surface as Desktop Pet.
 
 ## Quick start
 
+### Current recommended path
+
+Use manual extension mode for end-to-end Desktop Pet testing today. Hermes
+WebUI v0.51.644 added a Settings -> Extensions Gallery install flow, and the
+published Desktop Companion entry can be downloaded/uninstalled there. The
+core Gallery activation follow-up is tracked in nesquena/hermes-webui#4905 and
+implemented by nesquena/hermes-webui#4907. Until that lands in the WebUI build
+you are testing, Gallery install should be treated as file delivery only, not as
+the full browser-adapter activation path.
+
 Run the local companion loopback server:
 
 ```bash
@@ -99,6 +109,19 @@ npm run desktop:dev
 The Tauri shell loads `http://127.0.0.1:17787/pet` and
 `http://127.0.0.1:17787/pet/bubbles`. It no longer depends on Hermes WebUI
 serving `/pet`, `/pet/bubbles`, or `/api/pet/*`.
+
+### Gallery status
+
+Desktop Companion is published in the Hermes WebUI extension registry. Once the
+core Gallery activation fix is in your WebUI build, the expected flow will be:
+
+1. Install Desktop Companion from Settings -> Extensions -> Gallery.
+2. Start the local companion loopback from this repo with `npm run dev`.
+3. Start the native desktop pet with `npm run desktop:dev`.
+4. Reload WebUI so the browser adapter can post snapshots to the sidecar.
+
+The Gallery entry intentionally does not install or auto-start the native
+sidecar/Tauri host. Those remain local Desktop Companion runtime processes.
 
 Older WebUI builds without `HERMES_WEBUI_EXTENSION_MANIFEST` can still load the
 adapter with explicit asset lists:
