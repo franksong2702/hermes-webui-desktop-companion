@@ -61,17 +61,14 @@ package as Desktop Companion and the current visual surface as Desktop Pet.
 
 ### After Gallery install
 
-Gallery install only enables the WebUI bridge. The desktop pet appears after
-you start the local Desktop Companion runtime from this repo.
+Installing Desktop Companion from the Hermes WebUI Gallery installs the WebUI
+bridge only. It does not install or launch the local desktop app. The desktop
+pet appears after the local Desktop Companion runtime is running on this
+machine.
 
-If you already have this repo cloned, run:
+#### First-time setup
 
-```bash
-cd hermes-webui-desktop-companion
-npm run start:pet
-```
-
-For a fresh clone, run:
+Use this path the first time you try Desktop Companion on a machine:
 
 1. In Hermes WebUI, open Settings -> Extensions -> Gallery and install
    Desktop Companion.
@@ -83,20 +80,41 @@ cd hermes-webui-desktop-companion
 npm install
 ```
 
-3. Start the sidecar and native Desktop Pet host.
+3. Start the local sidecar and native Desktop Pet app.
 
 ```bash
 npm run start:pet
 ```
 
+4. Open or reload Hermes WebUI.
+
+No browser pet should appear. The visible pet is the native desktop window. When
+Hermes WebUI has the Gallery-installed adapter loaded, session updates,
+completion reminders, approvals, and clarify prompts can appear above the
+desktop pet.
+
+#### Start or restart after it is installed
+
+If Desktop Companion was already cloned and set up, use the same command any
+time you want to start it again:
+
+```bash
+cd hermes-webui-desktop-companion
+npm run start:pet
+```
+
+This is also the recovery path after you close the pet from its right-click menu
+or stop the terminal process.
+
 `npm run start:pet` starts the local loopback sidecar at
 `http://127.0.0.1:17787` and launches the native Tauri Desktop Pet. If
-`desktop-pet` dependencies are missing, the script installs them first. Stop it
-with `Ctrl-C`.
+`desktop-pet` dependencies are missing, the script installs them first.
 
-Then open or reload Hermes WebUI. No browser pet should appear. The
-Gallery-installed adapter posts snapshots to the sidecar, and the visible pet is
-the native desktop window.
+To stop Desktop Companion during local testing, use the pet's right-click menu
+or press `Ctrl-C` in the terminal running `npm run start:pet`.
+
+If Hermes WebUI shows Desktop Companion as installed but the pet does not react,
+check that `npm run start:pet` is still running and then reload Hermes WebUI.
 
 ### Manual extension mode
 
