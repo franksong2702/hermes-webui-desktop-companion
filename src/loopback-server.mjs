@@ -251,6 +251,17 @@ function latestWebuiOrigin(latestSnapshot) {
   }
 }
 
+function isProcessAlive(pid) {
+  const parsed = Number(pid || 0);
+  if (!Number.isInteger(parsed) || parsed <= 0) return false;
+  try {
+    process.kill(parsed, 0);
+    return true;
+  } catch (error) {
+    return error && error.code === 'EPERM';
+  }
+}
+
 function safeSessionId(value) {
   const sid = String(value || '').trim();
   return /^[A-Za-z0-9_-]{1,128}$/.test(sid) ? sid : '';
@@ -441,6 +452,7 @@ export function createServer(options = {}) {
   let navigationCommands = [];
   let navigationLastPollAt = 0;
   let actionCommands = [];
+  let nativeHostRegistration = null;
 
   function preferenceResponse() {
     return { ok: true, ...preferences, server_time: Date.now() / 1000 };
@@ -454,6 +466,23 @@ export function createServer(options = {}) {
     preferences = normalizePreferences(next);
     savePreferences(preferencePath, preferences);
     return preferenceResponse();
+  }
+
+  function runtimeStatus(now = Date.now()) {
+    const snapshotState = snapshotAttentionState(latestSnapshot, now);
+    const snapshotMs = snapshotTimestampMs(latestSnapshot);
+    const bridgeConnected = snapshotState === 'fresh';
+    const nativeHostRunning = isProcessAlive(nativeHostRegistration && nativeHostRegistration.pid);
+    return {
+      sidecar: 'running',
+      native_host: nativeHostRunning
+        ? 'running'
+        : (nativeHostRegistration ? 'stopped' : 'not_registered'),
+      bridge: bridgeConnected ? 'connected' : (snapshotState === 'empty' ? 'waiting' : snapshotState),
+      last_seen_at: snapshotMs > 0 ? snapshotMs / 1000 : null,
+      webui_origin: latestWebuiOrigin(latestSnapshot),
+      native_host_registered_at: nativeHostRegistration ? nativeHostRegistration.registered_at : null
+    };
   }
 
   function trimNavigationCommands(now = Date.now()) {
@@ -684,7 +713,8 @@ export function createServer(options = {}) {
           sidecar: {
             type: 'loopback',
             health_path: '/health'
-          }
+          },
+          runtime: runtimeStatus()
         }, headers);
         return;
       }
@@ -756,6 +786,15 @@ export function createServer(options = {}) {
       }
 
       if (req.method === 'POST' && url.pathname === '/api/pet/register') {
+        const body = await readJson(req);
+        const pid = Number(body && body.pid || 0);
+        const now = Date.now();
+        nativeHostRegistration = {
+          pid: Number.isInteger(pid) && pid > 0 ? pid : null,
+          base_url: String(body && body.base_url || ''),
+          registered_at: now / 1000,
+          registered_at_ms: now
+        };
         sendJson(res, 200, { ok: true, server_time: Date.now() / 1000 }, headers);
         return;
       }

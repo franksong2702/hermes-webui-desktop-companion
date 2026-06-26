@@ -22,6 +22,14 @@ Returns:
   "sidecar": {
     "type": "loopback",
     "health_path": "/health"
+  },
+  "runtime": {
+    "sidecar": "running",
+    "native_host": "running",
+    "bridge": "connected",
+    "last_seen_at": 1782477600,
+    "webui_origin": "http://127.0.0.1:8787",
+    "native_host_registered_at": 1782477580
   }
 }
 ```
@@ -29,6 +37,13 @@ Returns:
 The `ok`, `service`, and `version` fields are retained for simple scripts. The
 `status`, `name`, and `sidecar` fields are intended for future WebUI extension
 settings or diagnostics panels.
+
+The optional `runtime` object is machine-readable status for generic
+sidecar/native extensions. `sidecar` reports the loopback process state,
+`native_host` reports the native app state (`running`, `stopped`, or
+`not_registered`), and `bridge` reports whether the WebUI adapter has sent a
+fresh snapshot (`connected`, `waiting`, `stale`, or `unloaded`). `last_seen_at`
+is the latest WebUI snapshot timestamp in Unix seconds when available.
 
 ## `POST /api/webui/snapshot`
 
