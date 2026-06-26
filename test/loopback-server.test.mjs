@@ -45,6 +45,11 @@ test('health returns service metadata', async () => {
     type: 'loopback',
     health_path: '/health'
   });
+  assert.equal(body.runtime.sidecar, 'running');
+  assert.equal(body.runtime.native_host, 'not_registered');
+  assert.equal(body.runtime.bridge, 'waiting');
+  assert.equal(body.runtime.last_seen_at, null);
+  assert.equal(body.runtime.webui_origin, null);
 });
 
 test('snapshot endpoint stores latest WebUI snapshot', async () => {
@@ -69,6 +74,13 @@ test('snapshot endpoint stores latest WebUI snapshot', async () => {
   const body = await get.json();
   assert.equal(body.ok, true);
   assert.deepEqual(body.snapshot, snapshot);
+
+  const health = await fetch(`${baseUrl}/health`);
+  const healthBody = await health.json();
+  assert.equal(health.status, 200);
+  assert.equal(healthBody.runtime.bridge, 'connected');
+  assert.equal(healthBody.runtime.webui_origin, 'http://127.0.0.1:8787');
+  assert.equal(healthBody.runtime.last_seen_at, Date.parse(snapshot.timestamp) / 1000);
 });
 
 test('pet attention is derived from latest WebUI snapshot', async () => {
@@ -487,11 +499,16 @@ test('pet register and preference routes are owned by the sidecar', async () => 
   const register = await fetch(`${baseUrl}/api/pet/register`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ pid: 12345, base_url: 'http://127.0.0.1:17787' })
+    body: JSON.stringify({ pid: process.pid, base_url: 'http://127.0.0.1:17787' })
   });
   const registerBody = await register.json();
   assert.equal(register.status, 200);
   assert.equal(registerBody.ok, true);
+
+  const health = await fetch(`${baseUrl}/health`);
+  const healthBody = await health.json();
+  assert.equal(healthBody.runtime.native_host, 'running');
+  assert.ok(healthBody.runtime.native_host_registered_at > 0);
 
   const preferencePost = await fetch(`${baseUrl}/api/pet/preference`, {
     method: 'POST',
