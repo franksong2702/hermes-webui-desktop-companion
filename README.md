@@ -21,8 +21,8 @@ The first milestone is intentionally small:
 
 ```text
 Hermes WebUI page
-  -> HERMES_WEBUI_EXTENSION_MANIFEST=manifest.json
-  -> injected /extensions/companion-adapter.js
+  -> Gallery-installed Desktop Companion bridge
+  -> injected /extensions/desktop-companion/assets/companion-adapter.js
   -> http://127.0.0.1:17787 loopback API
   -> Tauri desktop companion runtime
 ```
@@ -59,23 +59,49 @@ package as Desktop Companion and the current visual surface as Desktop Pet.
 
 ## Quick start
 
-### Current recommended path
+### After Gallery install
 
-Use manual extension mode for end-to-end Desktop Pet testing today. Hermes
-WebUI v0.51.644 added a Settings -> Extensions Gallery install flow, and the
-published Desktop Companion entry can be downloaded/uninstalled there. The
-core Gallery activation follow-up is tracked in nesquena/hermes-webui#4905 and
-implemented by nesquena/hermes-webui#4907. Until that lands in the WebUI build
-you are testing, Gallery install should be treated as file delivery only, not as
-the full browser-adapter activation path.
+Gallery install only enables the WebUI bridge. The desktop pet appears after
+you start the local Desktop Companion runtime from this repo.
 
-Run the local companion loopback server:
+If you already have this repo cloned, run:
 
 ```bash
-npm run dev
+cd /Users/xuefusong/hermes-webui-desktop-companion
+npm run start:pet
 ```
 
-In another shell, print the Hermes WebUI extension environment:
+For a fresh clone, run:
+
+1. In Hermes WebUI, open Settings -> Extensions -> Gallery and install
+   Desktop Companion.
+2. Clone this repo and install the root package.
+
+```bash
+git clone https://github.com/franksong2702/hermes-webui-desktop-companion
+cd hermes-webui-desktop-companion
+npm install
+```
+
+3. Start the sidecar and native Desktop Pet host.
+
+```bash
+npm run start:pet
+```
+
+`npm run start:pet` starts the local loopback sidecar at
+`http://127.0.0.1:17787` and launches the native Tauri Desktop Pet. If
+`desktop-pet` dependencies are missing, the script installs them first. Stop it
+with `Ctrl-C`.
+
+Then open or reload Hermes WebUI. No browser pet should appear. The
+Gallery-installed adapter posts snapshots to the sidecar, and the visible pet is
+the native desktop window.
+
+### Manual extension mode
+
+For older WebUI builds or local extension-asset development, print the Hermes
+WebUI extension environment:
 
 ```bash
 ./scripts/print-webui-env.sh
@@ -90,19 +116,17 @@ HERMES_WEBUI_EXTENSION_MANIFEST=manifest.json \
 ./start.sh
 ```
 
-Then open Hermes WebUI. No browser pet should appear. When the loopback is
-running it receives snapshots at `POST /api/webui/snapshot`.
-
 You can also start WebUI in plugin mode directly:
 
 ```bash
 ./scripts/start-webui-plugin-mode.sh /path/to/hermes-webui
 ```
 
-Run the native desktop pet shell:
+Run the local companion loopback server and native desktop pet shell separately
+when debugging each process:
 
 ```bash
-npm install --prefix desktop-pet
+npm run dev
 npm run desktop:dev
 ```
 
@@ -112,13 +136,12 @@ serving `/pet`, `/pet/bubbles`, or `/api/pet/*`.
 
 ### Gallery status
 
-Desktop Companion is published in the Hermes WebUI extension registry. Once the
-core Gallery activation fix is in your WebUI build, the expected flow will be:
+Desktop Companion is published in the Hermes WebUI extension registry. The
+expected flow is:
 
 1. Install Desktop Companion from Settings -> Extensions -> Gallery.
-2. Start the local companion loopback from this repo with `npm run dev`.
-3. Start the native desktop pet with `npm run desktop:dev`.
-4. Reload WebUI so the browser adapter can post snapshots to the sidecar.
+2. Start the local companion runtime from this repo with `npm run start:pet`.
+3. Reload WebUI so the browser adapter can post snapshots to the sidecar.
 
 The Gallery entry intentionally does not install or auto-start the native
 sidecar/Tauri host. Those remain local Desktop Companion runtime processes.

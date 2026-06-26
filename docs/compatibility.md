@@ -6,7 +6,7 @@ as the main WebUI extension APIs roll forward.
 
 ## Required Today
 
-- Manifest-bundled extension assets through `HERMES_WEBUI_EXTENSION_MANIFEST`.
+- Gallery-installed or manifest-bundled extension assets.
 - Same-origin extension asset serving under `/extensions/`.
 - Browser access to existing authenticated WebUI session APIs.
 - Local loopback access from the WebUI page to `http://127.0.0.1:17787`.
@@ -64,13 +64,12 @@ WebUI page when a global is absent or changes shape.
 - confirm `extension/extension.json` parses as JSON and matches the PR #10
   entry shape
 - confirm `/health` returns `status: "ok"`
-- confirm WebUI loads the adapter from the manifest bundle
+- confirm WebUI loads the adapter from Gallery install or the manifest bundle
 - confirm the pet remains usable when the sidecar is offline
 - confirm install, disable, and uninstall steps are documented
 
 ## Known Pending Work
 
 - Main WebUI does not yet manage sidecar lifecycle.
-- Main WebUI does not yet auto-install Desktop Companion.
 - Main WebUI does not yet proxy sidecar routes.
 - The sidecar stores current state in memory only.
