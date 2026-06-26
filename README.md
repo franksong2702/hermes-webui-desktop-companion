@@ -67,7 +67,7 @@ you start the local Desktop Companion runtime from this repo.
 If you already have this repo cloned, run:
 
 ```bash
-cd /Users/xuefusong/hermes-webui-desktop-companion
+cd hermes-webui-desktop-companion
 npm run start:pet
 ```
 
