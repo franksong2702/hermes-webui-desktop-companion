@@ -75,7 +75,10 @@ fn set_native_ignore_cursor_events(window: &WebviewWindow, ignore: bool) {
 fn set_native_ignore_cursor_events(_window: &WebviewWindow, _ignore: bool) {}
 
 fn set_pet_window_level(window: &WebviewWindow) {
-    let _ = window;
+    #[cfg(target_os = "macos")]
+    set_native_window_level(window, objc2_app_kit::NSStatusWindowLevel);
+    #[cfg(not(target_os = "macos"))]
+    set_native_window_level(window, 0);
 }
 
 fn set_bubble_window_level(window: &WebviewWindow) {
@@ -199,6 +202,16 @@ fn restore_pet_window_layers_later(app: tauri::AppHandle, delay: Duration) {
         let handle_for_window = app.clone();
         let _ = app.run_on_main_thread(move || restore_pet_window_layers(&handle_for_window));
     });
+}
+
+fn restore_pet_window_layers_during_startup(app: tauri::AppHandle) {
+    for delay in [
+        Duration::from_millis(80),
+        Duration::from_millis(300),
+        Duration::from_millis(1200),
+    ] {
+        restore_pet_window_layers_later(app.clone(), delay);
+    }
 }
 
 #[derive(Deserialize)]
@@ -419,6 +432,7 @@ fn main() {
             ) {
                 attach_bubble_child_window(&pet_window, &bubble_window);
             }
+            restore_pet_window_layers_during_startup(app.handle().clone());
             let raise_handle = app.handle().clone();
             let raise_visible_state = bubble_visible_state_for_setup.clone();
             app.listen(PET_RAISE_REQUESTED_EVENT, move |event| {
@@ -549,25 +563,24 @@ fn main() {
                     } else {
                         allow_inline_action_responses_label
                     };
-                    let Ok(permission_menu) = SubmenuBuilder::new(
-                        &menu_handle,
-                        permissions_control_label,
-                    )
-                    .text(
-                        format!(
-                            "{PERMISSION_MENU_PREFIX}allow_direct_send:{}",
-                            !allow_direct_send
-                        ),
-                        direct_send_label,
-                    )
-                    .text(
-                        format!(
-                            "{PERMISSION_MENU_PREFIX}allow_inline_action_responses:{}",
-                            !allow_inline_action_responses
-                        ),
-                        inline_action_label,
-                    )
-                    .build() else {
+                    let Ok(permission_menu) =
+                        SubmenuBuilder::new(&menu_handle, permissions_control_label)
+                            .text(
+                                format!(
+                                    "{PERMISSION_MENU_PREFIX}allow_direct_send:{}",
+                                    !allow_direct_send
+                                ),
+                                direct_send_label,
+                            )
+                            .text(
+                                format!(
+                                    "{PERMISSION_MENU_PREFIX}allow_inline_action_responses:{}",
+                                    !allow_inline_action_responses
+                                ),
+                                inline_action_label,
+                            )
+                            .build()
+                    else {
                         return;
                     };
                     let Ok(menu) = MenuBuilder::new(&menu_handle)
