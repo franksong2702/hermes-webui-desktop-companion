@@ -1,34 +1,32 @@
 # Hermes WebUI Extension Setup
 
-Hermes WebUI extensions are disabled by default. For end-to-end Desktop Pet
-testing today, use manual extension mode: start WebUI with this project's
-extension directory and manifest configured.
-
-Hermes WebUI v0.51.644 added Settings -> Extensions Gallery install/uninstall,
-and Desktop Companion is published in the registry. That Gallery path currently
-downloads and tracks the extension files, but it needs the WebUI-side activation
-fix from nesquena/hermes-webui#4907 before the browser adapter is injected from
-the installed package. Until that fix is in the WebUI build you are testing, do
-not use the Gallery `Installed` badge as proof that the Desktop Companion
-adapter is running.
+Hermes WebUI supports Gallery install for the Desktop Companion browser bridge.
+For end-to-end Desktop Pet testing, install Desktop Companion from Settings ->
+Extensions -> Gallery, then start the local companion runtime from this repo:
 
 ```bash
-cd /path/to/hermes-webui
-HERMES_WEBUI_EXTENSION_DIR=/path/to/hermes-webui-desktop-companion/extension \
-HERMES_WEBUI_EXTENSION_MANIFEST=manifest.json \
-./start.sh
+cd /path/to/hermes-webui-desktop-companion
+npm install
+npm run start:pet
 ```
+
+`npm run start:pet` starts both the loopback sidecar and the native Tauri
+Desktop Pet host. If the `desktop-pet` package dependencies are missing, the
+script installs them first. Stop both processes with `Ctrl-C`.
 
 `extension/manifest.json` lists the companion adapter script. It also declares a
 descriptive loopback sidecar at
 `http://127.0.0.1:17787/health`. This is the preferred path for WebUI builds
 that include extension manifest support.
 
-For local development, start the companion loopback first:
+For local development against an older WebUI build or a checked-out extension
+directory, manual extension mode is still available:
 
 ```bash
-cd /path/to/hermes-webui-desktop-companion
-npm run dev
+cd /path/to/hermes-webui
+HERMES_WEBUI_EXTENSION_DIR=/path/to/hermes-webui-desktop-companion/extension \
+HERMES_WEBUI_EXTENSION_MANIFEST=manifest.json \
+./start.sh
 ```
 
 The adapter calls the companion at `http://127.0.0.1:17787` by default. Override
@@ -59,10 +57,9 @@ The current plugin-mode milestone does not render a pet inside the WebUI page.
 The extension hook only feeds the standalone Tauri desktop pet through the
 loopback protocol.
 
-After the core Gallery activation follow-up lands, the expected install shape is
-to install Desktop Companion from Settings -> Extensions -> Gallery, then still
-start the companion loopback and native pet from this repo. The Gallery entry is
-not a native-host installer or autostart mechanism.
+The Gallery entry is not a native-host installer or autostart mechanism. It
+installs the WebUI bridge; this repo still owns the local sidecar and native pet
+host.
 
 For older WebUI builds without `HERMES_WEBUI_EXTENSION_MANIFEST`, fall back to
 the explicit URL-list configuration:
