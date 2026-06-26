@@ -590,6 +590,7 @@ test('desktop pet keeps the migrated PR2916 bubble window choreography', async (
   const petText = await readFile(new URL('../desktop-pet/web/pet.js', import.meta.url), 'utf8');
   const bubblesText = await readFile(new URL('../desktop-pet/web/bubbles.js', import.meta.url), 'utf8');
   const cssText = await readFile(new URL('../desktop-pet/web/pet.css', import.meta.url), 'utf8');
+  const tauriMainText = await readFile(new URL('../desktop-pet/src-tauri/src/main.rs', import.meta.url), 'utf8');
 
   assert.match(petText, /COLLAPSED_KEY='hermes-pet-collapsed'/);
   assert.match(petText, /COLLAPSE_EXPLICIT_KEY='hermes-pet-collapsed-explicit'/);
@@ -614,6 +615,10 @@ test('desktop pet keeps the migrated PR2916 bubble window choreography', async (
   assert.match(bubblesText, /_setExpandedActionCard\(card,true\)/);
   assert.match(cssText, /\.pet-bubbles-body\{[^}]*pointer-events:none/);
   assert.match(cssText, /\.pet-bubbles,\n\.pet-install,\n\.pet-ready-toast,\n\.pet-welcome\{pointer-events:auto/);
+  assert.match(tauriMainText, /set_native_window_level\(window, objc2_app_kit::NSStatusWindowLevel\)/);
+  assert.match(tauriMainText, /fn restore_pet_window_layers_during_startup/);
+  assert.match(tauriMainText, /Duration::from_millis\(1200\)/);
+  assert.match(tauriMainText, /restore_pet_window_layers_during_startup\(app\.handle\(\)\.clone\(\)\)/);
 });
 
 test('extension manifest bundles adapter assets', async () => {
